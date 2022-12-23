@@ -6,6 +6,7 @@ COPY ./requirements.txt /src/requirements.txt
 RUN pip install -r /src/requirements.txt
 
 COPY . /src/
+RUN python /src/setup.py develop
 WORKDIR /src
 
-CMD gunicorn --workers=2 server:app
+CMD python server.py
