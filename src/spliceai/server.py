@@ -7,8 +7,8 @@ import numpy as np
 from flask import Flask, request, jsonify
 from pyfaidx import Faidx
 
-from src.spliceai import service_folder
-from src.spliceai.service import SpliceAIConf, SpliceaiService
+from src import service_folder
+from src.service import SpliceAIConf, SpliceaiService
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
