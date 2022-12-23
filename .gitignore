@@ -1,0 +1,14 @@
+*.tar.gz
+*.zip
+data/checkpoints/*
+data/respond_files/*
+*.pyc
+.DS_Store/*
+.ipynb_checkpoints/*
+*.pth
+runs/*
+.vscode/*
+venv/*
+
+.ipynb_checkpoints
+.DS_Store
