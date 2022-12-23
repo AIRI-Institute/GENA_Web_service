@@ -1,7 +1,7 @@
 *.tar.gz
 *.zip
-data/checkpoints/*
-data/respond_files/*
+src/spliceai/data/checkpoints/*
+src/spliceai/data/respond_files/*
 *.pyc
 .DS_Store/*
 .ipynb_checkpoints/*

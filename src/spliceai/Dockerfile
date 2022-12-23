@@ -1,12 +1,11 @@
 FROM python:3.10.0
 
-RUN mkdir /dnalm_service
+RUN mkdir /src
 
-COPY ../../. /dnalm_service/
+COPY ./requirements.txt /src/requirements.txt
+RUN pip install -r /src/requirements.txt
 
-RUN pip install -r /dnalm_service/requirements.txt
-RUN python setup.py install
+COPY . /src/
+WORKDIR /src
 
-WORKDIR /dnalm_service
-
-CMD gunicorn server:app
+CMD gunicorn --workers=2 server:app

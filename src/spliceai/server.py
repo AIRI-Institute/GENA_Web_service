@@ -7,7 +7,7 @@ import numpy as np
 from flask import Flask, request, jsonify
 from pyfaidx import Faidx
 
-from src import service_folder
+from src.spliceai import service_folder
 from src.spliceai.service import SpliceAIConf, SpliceaiService
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -17,18 +17,6 @@ app = Flask(__name__)
 conf = SpliceAIConf()
 instance_class = SpliceaiService(conf)
 respond_files_path = service_folder.joinpath('data/respond_files/spliceai')
-
-
-# def write_faidx_file(faidx_obj: Faidx,
-#                      file_path: Union[str, Path],
-#                      coding_type: str = 'utf-8') -> None:
-#     if isinstance(file_path, str):
-#         file_path = Path(file_path)
-#
-#     with faidx_obj.lock:
-#         with file_path.open('w', encoding=coding_type) as outfile:
-#             for line in faidx_obj._index_as_string():
-#                 outfile.write(line)
 
 
 def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict]:

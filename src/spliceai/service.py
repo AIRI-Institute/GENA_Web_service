@@ -6,8 +6,8 @@ import numpy as np
 import torch
 from transformers import AutoConfig, AutoTokenizer
 
-from src import service_folder
-from src.gena_lm.utils import get_cls_by_name
+from src.spliceai import service_folder
+from src.spliceai.gena_lm.utils import get_cls_by_name
 
 
 @dataclass
@@ -16,7 +16,7 @@ class SpliceAIConf:
     context_len = 5000
     max_seq_len = 512
     tokenizer = service_folder.joinpath('data/tokenizers/human/BPE_32k/')
-    model_cls = 'src.gena_lm.modeling_bert:BertForTokenClassification'
+    model_cls = 'src.spliceai.gena_lm.modeling_bert:BertForTokenClassification'
     model_cfg = service_folder.joinpath('data/configs/L12-H768-A12-V32k-preln.json')
     checkpoint_path = service_folder.joinpath('data/checkpoints/spliceai/model_best.pth')
 

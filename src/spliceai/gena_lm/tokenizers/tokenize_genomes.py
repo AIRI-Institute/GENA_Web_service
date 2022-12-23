@@ -40,7 +40,7 @@ def create_bpe_tokenizer(
 @click.option("--tokenizer_name", default="BPE", show_default=True)
 def cli(input_dir, output_dir, limit_files, vocab_size, tokenizer_name):
     if output_dir is None:
-        output_dir = Path(".")
+        output_dir = Path("")
     output_dir.mkdir(parents=True, exist_ok=True)
     create_bpe_tokenizer(
         input_dir=input_dir,

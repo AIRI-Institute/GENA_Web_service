@@ -7,7 +7,7 @@ import torch
 from transformers import AutoConfig, AutoTokenizer
 
 from src import service_folder
-from src.gena_lm.utils import get_cls_by_name
+from src.spliceai.gena_lm import get_cls_by_name
 
 
 @dataclass

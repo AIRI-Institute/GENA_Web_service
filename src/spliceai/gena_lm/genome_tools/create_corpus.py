@@ -106,7 +106,7 @@ def read_single_fasta(fna_file: Path, output_dir: Optional[Path] = None,
                       min_len: Optional[int] = 10000,
                       rc: Optional[bool] = False):
     if not output_dir:
-        output_dir = Path(".")
+        output_dir = Path("")
 
     if contigs_split_file is not None:
         contigs = pd.read_csv(contigs_split_file, dtype=str)
