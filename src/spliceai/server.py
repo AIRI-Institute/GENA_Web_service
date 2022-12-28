@@ -108,7 +108,7 @@ def respond():
 
         # extract filenames
         for key, value in result.items():
-            result[key] = 'http://localhost:61/generated/' + os.path.basename(value)
+            result[key] = '/generated/' + os.path.basename(value)
 
         return jsonify(result)
 
