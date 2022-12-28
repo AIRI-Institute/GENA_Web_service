@@ -1,3 +1,4 @@
+import os
 import logging
 import time
 from datetime import date, datetime
@@ -21,8 +22,10 @@ respond_files_path = service_folder.joinpath('data/respond_files/spliceai')
 
 def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict]:
     st_time = time.time()
-    fasta_seq = service_request.json["fasta_seq"]
-    seq_name, dna_seq = fasta_seq.split('\n')
+    fasta_seq = service_request.form.get('dna')
+    fasta_seq.replace('\n', ' ')
+    fasta_seq.replace('  ', ' ')
+    seq_name, dna_seq = fasta_seq.split()
     chrome = seq_name.split()[0][1:]
 
     # write fasta file
@@ -96,15 +99,19 @@ def save_annotations_files(annotation: Dict,
     return respond_dict
 
 
-@app.route("/splice_ai", methods=["POST"])
+@app.route("/api/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
         dna_seq, chrome, respond_dict = save_fasta_and_faidx_files(request)
         model_out = get_model_prediction(dna_seq)
         result = save_annotations_files(model_out, chrome, respond_dict)
 
+        # extract filenames
+        for key, value in result.items():
+            result[key] = 'http://localhost:61/generated/' + os.path.basename(value)
+
         return jsonify(result)
 
 
 if __name__ == "__main__":
-    app.run(debug=False, host="127.0.0.1", port=3000)
+    app.run(debug=False, host="0.0.0.0", port=3000)
