@@ -39,9 +39,8 @@ class DeepSeaService:
         model_cfg.problem_type = 'multi_label_classification'
         model_cls = get_cls_by_name(config.model_cls)
         self.model = model_cls(config=model_cfg)
-        self.model.load_state_dict(
-            torch.load(config.checkpoint_path, map_location=torch.device('cpu')),
-            strict=False)
+        checkpoint = torch.load(config.checkpoint_path, map_location=torch.device('cpu'))
+        self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.eval()
         self.model_forward_args = set(inspect.getfullargspec(self.model.forward).args)
 
