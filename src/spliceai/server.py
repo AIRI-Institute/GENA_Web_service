@@ -23,9 +23,9 @@ respond_files_path = service_folder.joinpath('data/respond_files/spliceai')
 def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict]:
     st_time = time.time()
     fasta_seq = service_request.form.get('dna')
-    fasta_seq.replace('\n', ' ')
-    fasta_seq.replace('  ', ' ')
-    seq_name, dna_seq = fasta_seq.split()
+    lines = fasta_seq.splitlines()
+    seq_name = lines[0].strip()
+    dna_seq = ''.join(lines[1:]).strip()
     chrome = seq_name.split()[0][1:]
 
     # write fasta file
