@@ -18,9 +18,8 @@
 import logging
 import os
 
-from ...file_utils import is_tf_available
 from .utils import DataProcessor, InputExample, InputFeatures
-
+from ...file_utils import is_tf_available
 
 if is_tf_available():
     import tensorflow as tf
@@ -29,16 +28,16 @@ logger = logging.getLogger(__name__)
 
 
 def glue_convert_examples_to_features(
-    examples,
-    tokenizer,
-    max_length=512,
-    task=None,
-    label_list=None,
-    output_mode=None,
-    pad_on_left=False,
-    pad_token=0,
-    pad_token_segment_id=0,
-    mask_padding_with_zero=True,
+        examples,
+        tokenizer,
+        max_length=512,
+        task=None,
+        label_list=None,
+        output_mode=None,
+        pad_on_left=False,
+        pad_token=0,
+        pad_token_segment_id=0,
+        mask_padding_with_zero=True,
 ):
     """
     Loads a data file into a list of ``InputFeatures``
@@ -90,7 +89,7 @@ def glue_convert_examples_to_features(
         if ex_index % 10000 == 0:
             logger.info("Writing example %d/%d" % (ex_index, len_examples))
 
-        inputs = tokenizer.encode_plus(example.text_a, example.text_b, add_special_tokens=True, max_length=max_length,)
+        inputs = tokenizer.encode_plus(example.text_a, example.text_b, add_special_tokens=True, max_length=max_length, )
         input_ids, token_type_ids = inputs["input_ids"], inputs["token_type_ids"]
 
         # The mask has 1 for real tokens and 0 for padding tokens. Only real
@@ -129,7 +128,7 @@ def glue_convert_examples_to_features(
             logger.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
             logger.info("attention_mask: %s" % " ".join([str(x) for x in attention_mask]))
             logger.info("token_type_ids: %s" % " ".join([str(x) for x in token_type_ids]))
-            #logger.info("label: %s (id = %d)" % (example.label, label))
+            # logger.info("label: %s (id = %d)" % (example.label, label))
 
         features.append(
             InputFeatures(
@@ -170,7 +169,7 @@ class DnaPromProcessor(DataProcessor):
     """Processor for the DNA promoter data"""
 
     def get_labels(self):
-        return [None, None] 
+        return [None, None]
 
     def get_train_examples(self, data_dir):
         logger.info("LOOKING AT {}".format(os.path.join(data_dir, "train.tsv")))
@@ -196,7 +195,7 @@ class DnaSpliceProcessor(DataProcessor):
     """Processor for the DNA promoter data"""
 
     def get_labels(self):
-        return ["0", "1", "2"] 
+        return ["0", "1", "2"]
 
     def get_train_examples(self, data_dir):
         logger.info("LOOKING AT {}".format(os.path.join(data_dir, "train.tsv")))
@@ -217,11 +216,12 @@ class DnaSpliceProcessor(DataProcessor):
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
         return examples
 
+
 class DnaPairProcessor(DataProcessor):
     """Processor for the DNA promoter data"""
 
     def get_labels(self):
-        return ["0", "1"] 
+        return ["0", "1"]
 
     def get_train_examples(self, data_dir):
         logger.info("LOOKING AT {}".format(os.path.join(data_dir, "train.tsv")))
@@ -242,6 +242,7 @@ class DnaPairProcessor(DataProcessor):
             label = line[2]
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
+
 
 class MrpcProcessor(DataProcessor):
     """Processor for the MRPC data set (GLUE version)."""
@@ -604,9 +605,9 @@ glue_tasks_num_labels = {
     "rte": 2,
     "wnli": 2,
     "dnaprom": 2,
-    "dna690":2,
-    "dnapair":2,
-    "dnasplice":3,
+    "dna690": 2,
+    "dnapair": 2,
+    "dnasplice": 3,
 }
 
 glue_processors = {

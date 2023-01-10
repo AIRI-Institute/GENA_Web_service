@@ -15,7 +15,6 @@
 # limitations under the License.
 """PyTorch BERT model. """
 
-
 import logging
 import math
 import os
@@ -23,13 +22,11 @@ import os
 import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
-import torch.autograd as autograd
 
 from .activations import gelu, gelu_new, swish
 from .configuration_bert import BertConfig
 from .file_utils import add_start_docstrings, add_start_docstrings_to_callable
 from .modeling_utils import PreTrainedModel, prune_linear_layer
-
 
 logger = logging.getLogger(__name__)
 
@@ -89,8 +86,8 @@ def load_tf_weights_in_bert(model, config, tf_checkpoint_path):
         # adam_v and adam_m are variables used in AdamWeightDecayOptimizer to calculated m and v
         # which are not required for using pretrained model
         if any(
-            n in ["adam_v", "adam_m", "AdamWeightDecayOptimizer", "AdamWeightDecayOptimizer_1", "global_step"]
-            for n in name
+                n in ["adam_v", "adam_m", "AdamWeightDecayOptimizer", "AdamWeightDecayOptimizer_1", "global_step"]
+                for n in name
         ):
             logger.info("Skipping {}".format("/".join(name)))
             continue
@@ -136,7 +133,6 @@ def mish(x):
 
 
 ACT2FN = {"gelu": gelu, "relu": torch.nn.functional.relu, "swish": swish, "gelu_new": gelu_new, "mish": mish}
-
 
 BertLayerNorm = torch.nn.LayerNorm
 
@@ -207,12 +203,12 @@ class BertSelfAttention(nn.Module):
         return x.permute(0, 2, 1, 3)
 
     def forward(
-        self,
-        hidden_states,
-        attention_mask=None,
-        head_mask=None,
-        encoder_hidden_states=None,
-        encoder_attention_mask=None,
+            self,
+            hidden_states,
+            attention_mask=None,
+            head_mask=None,
+            encoder_hidden_states=None,
+            encoder_attention_mask=None,
     ):
         mixed_query_layer = self.query(hidden_states)
 
@@ -304,12 +300,12 @@ class BertAttention(nn.Module):
         self.pruned_heads = self.pruned_heads.union(heads)
 
     def forward(
-        self,
-        hidden_states,
-        attention_mask=None,
-        head_mask=None,
-        encoder_hidden_states=None,
-        encoder_attention_mask=None,
+            self,
+            hidden_states,
+            attention_mask=None,
+            head_mask=None,
+            encoder_hidden_states=None,
+            encoder_attention_mask=None,
     ):
         self_outputs = self.self(
             hidden_states, attention_mask, head_mask, encoder_hidden_states, encoder_attention_mask
@@ -362,12 +358,12 @@ class BertLayer(nn.Module):
         self.output = BertOutput(config)
 
     def forward(
-        self,
-        hidden_states,
-        attention_mask=None,
-        head_mask=None,
-        encoder_hidden_states=None,
-        encoder_attention_mask=None,
+            self,
+            hidden_states,
+            attention_mask=None,
+            head_mask=None,
+            encoder_hidden_states=None,
+            encoder_attention_mask=None,
     ):
         self_attention_outputs = self.attention(hidden_states, attention_mask, head_mask)
         attention_output = self_attention_outputs[0]
@@ -394,12 +390,12 @@ class BertEncoder(nn.Module):
         self.layer = nn.ModuleList([BertLayer(config) for _ in range(config.num_hidden_layers)])
 
     def forward(
-        self,
-        hidden_states,
-        attention_mask=None,
-        head_mask=None,
-        encoder_hidden_states=None,
-        encoder_attention_mask=None,
+            self,
+            hidden_states,
+            attention_mask=None,
+            head_mask=None,
+            encoder_hidden_states=None,
+            encoder_attention_mask=None,
     ):
         all_hidden_states = ()
         all_attentions = ()
@@ -531,7 +527,7 @@ class BertPreTrainedModel(PreTrainedModel):
             module.bias.data.zero_()
             module.weight.data.fill_(1.0)
         elif isinstance(module, (nn.LSTM, nn.GRU)):
-            
+
             for param in module.parameters():
                 if len(param.shape) >= 2:
                     torch.nn.init.xavier_normal_(param.data)
@@ -645,15 +641,15 @@ class BertModel(BertPreTrainedModel):
 
     @add_start_docstrings_to_callable(BERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        encoder_hidden_states=None,
-        encoder_attention_mask=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            encoder_hidden_states=None,
+            encoder_attention_mask=None,
     ):
         r"""
     Return:
@@ -712,38 +708,38 @@ class BertModel(BertPreTrainedModel):
         if token_type_ids is None:
             token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=device)
 
-#        # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
-#        # ourselves in which case we just need to make it broadcastable to all heads.
-#        if attention_mask.dim() == 3:
-#            extended_attention_mask = attention_mask[:, None, :, :]
-#        elif attention_mask.dim() == 2:
-#            # Provided a padding mask of dimensions [batch_size, seq_length]
-#            # - if the model is a decoder, apply a causal mask in addition to the padding mask
-#            # - if the model is an encoder, make the mask broadcastable to [batch_size, num_heads, seq_length, seq_length]
-#            if self.config.is_decoder:
-#                batch_size, seq_length = input_shape
-#                seq_ids = torch.arange(seq_length, device=device)
-#                causal_mask = seq_ids[None, None, :].repeat(batch_size, seq_length, 1) <= seq_ids[None, :, None]
-#                causal_mask = causal_mask.to(
-#                    attention_mask.dtype
-#                )  # causal and attention masks must have same type with pytorch version < 1.3
-#                extended_attention_mask = causal_mask[:, None, :, :] * attention_mask[:, None, None, :]
-#            else:
-#                extended_attention_mask = attention_mask[:, None, None, :]
-#        else:
-#            raise ValueError(
-#                "Wrong shape for input_ids (shape {}) or attention_mask (shape {})".format(
-#                    input_shape, attention_mask.shape
-#                )
-#            )
-#
-#        # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
-#        # masked positions, this operation will create a tensor which is 0.0 for
-#        # positions we want to attend and -10000.0 for masked positions.
-#        # Since we are adding it to the raw scores before the softmax, this is
-#        # effectively the same as removing these entirely.
-#        extended_attention_mask = extended_attention_mask.to(dtype=next(self.parameters()).dtype)  # fp16 compatibility
-#        extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
+        #        # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
+        #        # ourselves in which case we just need to make it broadcastable to all heads.
+        #        if attention_mask.dim() == 3:
+        #            extended_attention_mask = attention_mask[:, None, :, :]
+        #        elif attention_mask.dim() == 2:
+        #            # Provided a padding mask of dimensions [batch_size, seq_length]
+        #            # - if the model is a decoder, apply a causal mask in addition to the padding mask
+        #            # - if the model is an encoder, make the mask broadcastable to [batch_size, num_heads, seq_length, seq_length]
+        #            if self.config.is_decoder:
+        #                batch_size, seq_length = input_shape
+        #                seq_ids = torch.arange(seq_length, device=device)
+        #                causal_mask = seq_ids[None, None, :].repeat(batch_size, seq_length, 1) <= seq_ids[None, :, None]
+        #                causal_mask = causal_mask.to(
+        #                    attention_mask.dtype
+        #                )  # causal and attention masks must have same type with pytorch version < 1.3
+        #                extended_attention_mask = causal_mask[:, None, :, :] * attention_mask[:, None, None, :]
+        #            else:
+        #                extended_attention_mask = attention_mask[:, None, None, :]
+        #        else:
+        #            raise ValueError(
+        #                "Wrong shape for input_ids (shape {}) or attention_mask (shape {})".format(
+        #                    input_shape, attention_mask.shape
+        #                )
+        #            )
+        #
+        #        # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
+        #        # masked positions, this operation will create a tensor which is 0.0 for
+        #        # positions we want to attend and -10000.0 for masked positions.
+        #        # Since we are adding it to the raw scores before the softmax, this is
+        #        # effectively the same as removing these entirely.
+        #        extended_attention_mask = extended_attention_mask.to(dtype=next(self.parameters()).dtype)  # fp16 compatibility
+        #        extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
 
         # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
         # ourselves in which case we just need to make it broadcastable to all heads.
@@ -758,24 +754,23 @@ class BertModel(BertPreTrainedModel):
                 encoder_attention_mask = torch.ones(encoder_hidden_shape, device=device)
             encoder_extened_attention_mask = self.invert_attention_mask(encoder_attention_mask)
 
-#            if encoder_attention_mask.dim() == 3:
-#                encoder_extended_attention_mask = encoder_attention_mask[:, None, :, :]
-#            elif encoder_attention_mask.dim() == 2:
-#                encoder_extended_attention_mask = encoder_attention_mask[:, None, None, :]
-#            else:
-#                raise ValueError(
-#                    "Wrong shape for encoder_hidden_shape (shape {}) or encoder_attention_mask (shape {})".format(
-#                        encoder_hidden_shape, encoder_attention_mask.shape
-#                    )
-#                )
-#
-#            encoder_extended_attention_mask = encoder_extended_attention_mask.to(
-#                dtype=next(self.parameters()).dtype
-#            )  # fp16 compatibility
-#            encoder_extended_attention_mask = (1.0 - encoder_extended_attention_mask) * -10000.0
+        #            if encoder_attention_mask.dim() == 3:
+        #                encoder_extended_attention_mask = encoder_attention_mask[:, None, :, :]
+        #            elif encoder_attention_mask.dim() == 2:
+        #                encoder_extended_attention_mask = encoder_attention_mask[:, None, None, :]
+        #            else:
+        #                raise ValueError(
+        #                    "Wrong shape for encoder_hidden_shape (shape {}) or encoder_attention_mask (shape {})".format(
+        #                        encoder_hidden_shape, encoder_attention_mask.shape
+        #                    )
+        #                )
+        #
+        #            encoder_extended_attention_mask = encoder_extended_attention_mask.to(
+        #                dtype=next(self.parameters()).dtype
+        #            )  # fp16 compatibility
+        #            encoder_extended_attention_mask = (1.0 - encoder_extended_attention_mask) * -10000.0
         else:
             encoder_extended_attention_mask = None
-
 
         # Prepare head mask if needed
         # 1.0 in head_mask indicate we keep the head
@@ -784,19 +779,19 @@ class BertModel(BertPreTrainedModel):
         # and head_mask is converted to shape [num_hidden_layers x batch x num_heads x seq_length x seq_length]
         head_mask = self.get_head_mask(head_mask, self.config.num_hidden_layers)
 
-#        if head_mask is not None:
-#            if head_mask.dim() == 1:
-#                head_mask = head_mask.unsqueeze(0).unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
-#                head_mask = head_mask.expand(self.config.num_hidden_layers, -1, -1, -1, -1)
-#            elif head_mask.dim() == 2:
-#                head_mask = (
-#                    head_mask.unsqueeze(1).unsqueeze(-1).unsqueeze(-1)
-#                )  # We can specify head_mask for each layer
-#            head_mask = head_mask.to(
-#                dtype=next(self.parameters()).dtype
-#            )  # switch to fload if need + fp16 compatibility
-#        else:
-#            head_mask = [None] * self.config.num_hidden_layers
+        #        if head_mask is not None:
+        #            if head_mask.dim() == 1:
+        #                head_mask = head_mask.unsqueeze(0).unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
+        #                head_mask = head_mask.expand(self.config.num_hidden_layers, -1, -1, -1, -1)
+        #            elif head_mask.dim() == 2:
+        #                head_mask = (
+        #                    head_mask.unsqueeze(1).unsqueeze(-1).unsqueeze(-1)
+        #                )  # We can specify head_mask for each layer
+        #            head_mask = head_mask.to(
+        #                dtype=next(self.parameters()).dtype
+        #            )  # switch to fload if need + fp16 compatibility
+        #        else:
+        #            head_mask = [None] * self.config.num_hidden_layers
 
         embedding_output = self.embeddings(
             input_ids=input_ids, position_ids=position_ids, token_type_ids=token_type_ids, inputs_embeds=inputs_embeds
@@ -812,8 +807,8 @@ class BertModel(BertPreTrainedModel):
         pooled_output = self.pooler(sequence_output)
 
         outputs = (sequence_output, pooled_output,) + encoder_outputs[
-            1:
-        ]  # add hidden_states and attentions if they are here
+                                                      1:
+                                                      ]  # add hidden_states and attentions if they are here
         return outputs  # sequence_output, pooled_output, (hidden_states), (attentions)
 
 
@@ -836,15 +831,15 @@ class BertForPreTraining(BertPreTrainedModel):
 
     @add_start_docstrings_to_callable(BERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        masked_lm_labels=None,
-        next_sentence_label=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            masked_lm_labels=None,
+            next_sentence_label=None,
     ):
         r"""
         masked_lm_labels (``torch.LongTensor`` of shape ``(batch_size, sequence_length)``, `optional`, defaults to :obj:`None`):
@@ -908,8 +903,8 @@ class BertForPreTraining(BertPreTrainedModel):
         prediction_scores, seq_relationship_score = self.cls(sequence_output, pooled_output)
 
         outputs = (prediction_scores, seq_relationship_score,) + outputs[
-            2:
-        ]  # add hidden states and attention if they are here
+                                                                 2:
+                                                                 ]  # add hidden states and attention if they are here
 
         if masked_lm_labels is not None and next_sentence_label is not None:
             loss_fct = CrossEntropyLoss()
@@ -936,17 +931,17 @@ class BertForMaskedLM(BertPreTrainedModel):
 
     @add_start_docstrings_to_callable(BERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        masked_lm_labels=None,
-        encoder_hidden_states=None,
-        encoder_attention_mask=None,
-        lm_labels=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            masked_lm_labels=None,
+            encoder_hidden_states=None,
+            encoder_attention_mask=None,
+            lm_labels=None,
     ):
         r"""
         masked_lm_labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
@@ -1047,14 +1042,14 @@ class BertForNextSentencePrediction(BertPreTrainedModel):
 
     @add_start_docstrings_to_callable(BERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        next_sentence_label=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            next_sentence_label=None,
     ):
         r"""
         next_sentence_label (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -1136,14 +1131,14 @@ class BertForSequenceClassification(BertPreTrainedModel):
 
     @add_start_docstrings_to_callable(BERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            labels=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -1185,7 +1180,7 @@ class BertForSequenceClassification(BertPreTrainedModel):
         loss, logits = outputs[:2]
 
         """
-    
+
         outputs = self.bert(
             input_ids,
             attention_mask=attention_mask,
@@ -1194,7 +1189,7 @@ class BertForSequenceClassification(BertPreTrainedModel):
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
         )
-        
+
         pooled_output = outputs[1]
 
         pooled_output = self.dropout(pooled_output)
@@ -1209,9 +1204,6 @@ class BertForSequenceClassification(BertPreTrainedModel):
             outputs = (loss,) + outputs
 
         return outputs  # (loss), logits, (hidden_states), (attentions)
-
-
-
 
 
 @add_start_docstrings(
@@ -1232,29 +1224,30 @@ class BertForLongSequenceClassification(BertPreTrainedModel):
 
         self.bert = BertModel(config)
         if self.rnn_type == "lstm":
-            self.rnn = nn.LSTM(input_size=self.hidden_size,hidden_size=self.hidden_size, bidirectional=True, num_layers=self.num_rnn_layer, batch_first=True, dropout=self.rnn_dropout)
+            self.rnn = nn.LSTM(input_size=self.hidden_size, hidden_size=self.hidden_size, bidirectional=True,
+                               num_layers=self.num_rnn_layer, batch_first=True, dropout=self.rnn_dropout)
         elif self.rnn_type == "gru":
-            self.rnn = nn.GRU(input_size=self.hidden_size,hidden_size=self.hidden_size, bidirectional=True, num_layers=self.num_rnn_layer, batch_first=True, dropout=self.rnn_dropout)
+            self.rnn = nn.GRU(input_size=self.hidden_size, hidden_size=self.hidden_size, bidirectional=True,
+                              num_layers=self.num_rnn_layer, batch_first=True, dropout=self.rnn_dropout)
         else:
             raise ValueError
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(self.hidden_size, self.config.num_labels)
 
         self.init_weights()
-    
 
     @add_start_docstrings_to_callable(BERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
-        overlap=100,
-        max_length_per_seq=500,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            labels=None,
+            overlap=100,
+            max_length_per_seq=500,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -1306,7 +1299,6 @@ class BertForLongSequenceClassification(BertPreTrainedModel):
         # last_start = sequence_length-max_length_per_seq
         # if last_start > starts[-1]:
         #     starts.append(last_start)
-        
 
         # new_input_ids = torch.zeros([len(starts)*batch_size, max_length_per_seq], dtype=input_ids.dtype, device=input_ids.device)
         # new_attention_mask = torch.zeros([len(starts)*batch_size, max_length_per_seq], dtype=attention_mask.dtype, device=attention_mask.device)
@@ -1325,12 +1317,11 @@ class BertForLongSequenceClassification(BertPreTrainedModel):
         #     pooled_output = torch.zeros([batch_size, outputs[1].shape[1]], dtype=outputs[1].dtype)
         #     for i in range(batch_size):
         #         pooled_output[i] = outputs[1][i*batch_size:(i+1)*batch_size].mean(dim=0)
-        
+
         batch_size = input_ids.shape[0]
-        input_ids = input_ids.view(self.split*batch_size, 512)
-        attention_mask = attention_mask.view(self.split*batch_size, 512)
+        input_ids = input_ids.view(self.split * batch_size, 512)
+        attention_mask = attention_mask.view(self.split * batch_size, 512)
         token_type_ids = None
-        
 
         outputs = self.bert(
             input_ids,
@@ -1381,13 +1372,10 @@ class BertForLongSequenceClassification(BertPreTrainedModel):
         else:
             raise ValueError
 
-
-    
         output = self.dropout(ht.squeeze(0).sum(dim=0))
         logits = self.classifier(output)
-        outputs = (logits,) + outputs[2:]   # add hidden states and attention if they are here
+        outputs = (logits,) + outputs[2:]  # add hidden states and attention if they are here
 
-        
         if labels is not None:
             if self.num_labels == 1:
                 loss_fct = MSELoss()
@@ -1398,7 +1386,6 @@ class BertForLongSequenceClassification(BertPreTrainedModel):
             outputs = (loss,) + outputs
 
         return outputs  # (loss), logits, (hidden_states), (attentions)
-
 
 
 @add_start_docstrings(
@@ -1415,8 +1402,8 @@ class BertForLongSequenceClassificationCat(BertPreTrainedModel):
         self.bert = BertModel(config)
         self.dropout1 = nn.Dropout(config.hidden_dropout_prob)
         self.dropout2 = nn.Dropout(config.hidden_dropout_prob)
-        
-        self.classifier1 = nn.Linear(config.hidden_size*self.split, config.hidden_size)
+
+        self.classifier1 = nn.Linear(config.hidden_size * self.split, config.hidden_size)
         self.relu = torch.nn.ReLU()
         self.classifier2 = nn.Linear(config.hidden_size, self.config.num_labels)
 
@@ -1424,16 +1411,16 @@ class BertForLongSequenceClassificationCat(BertPreTrainedModel):
 
     @add_start_docstrings_to_callable(BERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
-        overlap=100,
-        max_length_per_seq=500,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            labels=None,
+            overlap=100,
+            max_length_per_seq=500,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -1475,12 +1462,10 @@ class BertForLongSequenceClassificationCat(BertPreTrainedModel):
         loss, logits = outputs[:2]
 
         """
-        
 
         batch_size = input_ids.shape[0]
-        input_ids = input_ids.view(self.split*batch_size, 512)
-        attention_mask = attention_mask.view(self.split*batch_size, 512)
-        
+        input_ids = input_ids.view(self.split * batch_size, 512)
+        attention_mask = attention_mask.view(self.split * batch_size, 512)
 
         outputs = self.bert(
             input_ids,
@@ -1493,7 +1478,6 @@ class BertForLongSequenceClassificationCat(BertPreTrainedModel):
 
         # hidden_states = outputs[1].unsqueeze(0)
         # attention_mask = torch.ones([1,1,1,10], device=hidden_states.device)
-
 
         # attended_output = self.atten1(hidden_states=hidden_states, attention_mask=attention_mask, head_mask=None)
         # attended_output = self.atten2(hidden_states=attended_output[0], attention_mask=attention_mask, head_mask=None)
@@ -1508,7 +1492,7 @@ class BertForLongSequenceClassificationCat(BertPreTrainedModel):
         # concatenate
         # pooled_output = attended_output[0].view(batch_size,-1)
 
-        pooled_output = outputs[1].view(batch_size,-1)
+        pooled_output = outputs[1].view(batch_size, -1)
         pooled_output = self.dropout1(pooled_output)
         pooled_output = self.classifier1(pooled_output)
         pooled_output = self.relu(pooled_output)
@@ -1529,10 +1513,6 @@ class BertForLongSequenceClassificationCat(BertPreTrainedModel):
         return outputs  # (loss), logits, (hidden_states), (attentions)
 
 
-
-
-
-
 @add_start_docstrings(
     """Bert Model with a multiple choice classification head on top (a linear layer on top of
     the pooled output and a softmax) e.g. for RocStories/SWAG tasks. """,
@@ -1550,14 +1530,14 @@ class BertForMultipleChoice(BertPreTrainedModel):
 
     @add_start_docstrings_to_callable(BERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            labels=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -1651,14 +1631,14 @@ class BertForTokenClassification(BertPreTrainedModel):
 
     @add_start_docstrings_to_callable(BERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            labels=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
@@ -1710,17 +1690,17 @@ class BertForTokenClassification(BertPreTrainedModel):
         )
 
         sequence_output = outputs[0]
-        sequence_output = sequence_output[:,200:300,:]
+        sequence_output = sequence_output[:, 200:300, :]
 
         sequence_output = self.dropout(sequence_output)
         logits = self.classifier(sequence_output)
 
         outputs = (logits,) + outputs[2:]  # add hidden states and attention if they are here
         if labels is not None:
-            labels = labels[:,200:300]
+            labels = labels[:, 200:300]
             # print(labels.shape)
             loss_fct = CrossEntropyLoss()
-            loss = loss_fct(logits.view(-1, self.num_labels), labels.reshape([labels.shape[0]*labels.shape[1]]))
+            loss = loss_fct(logits.view(-1, self.num_labels), labels.reshape([labels.shape[0] * labels.shape[1]]))
             # Only keep active parts of the loss
             # if attention_mask is not None:
             #     active_loss = attention_mask.view(-1) == 1
@@ -1751,15 +1731,15 @@ class BertForQuestionAnswering(BertPreTrainedModel):
 
     @add_start_docstrings_to_callable(BERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        start_positions=None,
-        end_positions=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            start_positions=None,
+            end_positions=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):

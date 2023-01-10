@@ -1,5 +1,6 @@
-import requests
 import json
+
+import requests
 
 url = "http://127.0.0.1:3000/api/upload"
 
@@ -7,4 +8,3 @@ j = '{"fasta_seq":">chr1\nCTCGTTCCGCGCCCGCCATGGAACCGGATGTACGTTATAGCTATTACGCTACTG
 
 result = requests.post(url, json=json.loads(j, strict=False)).json()
 print(result)
-
