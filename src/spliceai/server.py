@@ -99,7 +99,7 @@ def save_annotations_files(annotation: Dict,
     return respond_dict
 
 
-@app.route("/api/upload", methods=["POST"])
+@app.route("/api/gena/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
         dna_seq, chrome, respond_dict = save_fasta_and_faidx_files(request)
@@ -108,7 +108,7 @@ def respond():
 
         # extract filenames
         for key, value in result.items():
-            result[key] = '/generated/' + os.path.basename(value)
+            result[key] = '/generated/gena/' + os.path.basename(value)
 
         return jsonify(result)
 

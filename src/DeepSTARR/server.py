@@ -59,7 +59,7 @@ def save_annotations_files(pieces, chrome, req_path) -> Dict:
             f.write(f"{chrome}\t{str(i * 248)}\t{str((i + 1) * 248)}\t{str(preds[i, 0])}\t{str(preds[i, 1])}")
 
 
-@app.route("/api/upload", methods=["POST"])
+@app.route("/api/dnabert/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
         pieces, chrome, req_path = save_fasta_and_faidx_files(request)
