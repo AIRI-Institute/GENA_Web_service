@@ -1,18 +1,19 @@
-import logging
 import os
 import subprocess
+import logging
 import time
 from datetime import date, datetime
 from typing import Dict, Tuple
-
 import numpy as np
+
+from pyfaidx import Faidx
+
 from flask import Flask, request, jsonify
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-
 
 def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict]:
     st_time = time.time()
@@ -29,34 +30,35 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
         i = 0
         pieces = []
         while (i < len(dna_seq)):
-            piece = dna_seq[i:i + 248]
+            piece = dna_seq[i:i+248]
             pieces.append(piece)
             kmer = piece[:6]
             for j in range(1, len(piece) - 6 + 1):
-                kmer += " " + piece[j:j + 6]
+                kmer += " " + piece[j:j+6]
             kmer += "\t0\t0\n"
             i += 248
             input_file.write(kmer)
+
+    file_path = req_path + "/dna.fa"
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(fasta_seq)
+
+    Faidx(file_path)
 
     return pieces, chrome, req_path
 
 
 def get_model_prediction(req_path: str):
-    subprocess.run(
-        ["python3.9", "run_finetune.py", "--model_type", "dna", "--tokenizer_name=dna6", "--model_name_or_path",
-         "/DNABERT6", "--task_name", "dnaprom", "--do_predict", "--predict_dir", f"{req_path}", "--data_dir",
-         f"{req_path}", "--max_seq_length", "243", "--per_gpu_eval_batch_size", "32", "--per_gpu_train_batch_size",
-         "32", "--learning_rate", "2e-4", "--num_train_epochs", "5.0", "--output_dir", "/DNABERT6",
-         "--evaluate_during_training", "--logging_steps", "100", "--save_steps", "100", "--warmup_percent", "0.1",
-         "--hidden_dropout_prob", "0.1", "--overwrite_output", "--weight_decay", "0.01", "--n_process", "8"])
+    subprocess.run(["python3.9", "run_finetune.py", "--model_type", "dna", "--tokenizer_name=dna6", "--model_name_or_path", "/DNABERT6", "--task_name", "dnaprom", "--do_predict", "--predict_dir", f"{req_path}", "--data_dir",  f"{req_path}", "--max_seq_length", "243", "--per_gpu_eval_batch_size", "32", "--per_gpu_train_batch_size", "32", "--learning_rate", "2e-4", "--num_train_epochs", "5.0", "--output_dir", "/DNABERT6", "--evaluate_during_training", "--logging_steps", "100", "--save_steps", "100", "--warmup_percent", "0.1", "--hidden_dropout_prob", "0.1", "--overwrite_output", "--weight_decay", "0.01", "--n_process",  "8"])
 
 
 def save_annotations_files(pieces, chrome, req_path) -> Dict:
+
     with open(req_path + '/result.bed', 'w', encoding='utf-8') as f:
         preds = np.load(req_path + '/pred_results.npy')
         f.write("chrome\tstart\tend\tDev_log2_enrichment\tHk_log2_enrichment\n")
         for i in range(len(pieces)):
-            f.write(f"{chrome}\t{str(i * 248)}\t{str((i + 1) * 248)}\t{str(preds[i, 0])}\t{str(preds[i, 1])}")
+            f.write(f"{chrome}\t{str(i*248)}\t{str((i+1)*248)}\t{str(preds[i, 0])}\t{str(preds[i, 1])}")
 
 
 @app.route("/api/dnabert/upload", methods=["POST"])
@@ -66,7 +68,7 @@ def respond():
         get_model_prediction(req_path)
         save_annotations_files(pieces, chrome, req_path)
 
-        return jsonify({"bed_file": f"{req_path}/result.bed"})
+        return jsonify({"path_to_bed_file":f"{req_path}/result.bed", "path_to_fasta_file":f"{req_path}/dna.fa", "path_to_fai_file":f"{req_path}/dna.fai"})
 
 
 if __name__ == "__main__":
