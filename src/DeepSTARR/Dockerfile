@@ -18,7 +18,7 @@ RUN git clone https://github.com/jerryji1993/DNABERT
 WORKDIR ./DNABERT
 RUN python3.9 -m pip install --editable .
 WORKDIR ./examples
-RUN echo "tensorboardX\ntensorboard\nscikit-learn >= 0.22.2\nseqeval\npyahocorasick\nscipy\nstatsmodels\nbiopython\npandas\npybedtools\nsentencepiece\ntqdm\nFlask" > requirements.txt
+RUN echo "tensorboardX\ntensorboard\nscikit-learn >= 0.22.2\nseqeval\npyahocorasick\nscipy\nstatsmodels\nbiopython\npandas\npybedtools\nsentencepiece\ntqdm\nFlask\npyfaidx" > requirements.txt
 RUN python3.9 -m pip install -r requirements.txt
 
 COPY ./server.py /DNABERT/examples
