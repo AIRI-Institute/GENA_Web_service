@@ -54,11 +54,18 @@ def get_model_prediction(req_path: str):
 
 def save_annotations_files(pieces, chrome, req_path) -> Dict:
 
-    with open(req_path + '/result.bed', 'w', encoding='utf-8') as f:
+    with open(req_path + '/result_dev.bed', 'w', encoding='utf-8') as f:
         preds = np.load(req_path + '/pred_results.npy')
-        f.write("chrome\tstart\tend\tDev_log2_enrichment\tHk_log2_enrichment\n")
+        f.write("chrome\tstart\tend\tDev_log2_enrichment\n")
         for i in range(len(pieces)):
-            f.write(f"{chrome}\t{str(i*248)}\t{str((i+1)*248)}\t{str(preds[i, 0])}\t{str(preds[i, 1])}")
+            f.write(f"{chrome}\t{str(i*248)}\t{str((i+1)*248)}\t{str(preds[i, 0])}")
+
+
+    with open(req_path + '/result_hk.bed', 'w', encoding='utf-8') as f:
+        preds = np.load(req_path + '/pred_results.npy')
+        f.write("chrome\tstart\tend\tHk_log2_enrichment\n")
+        for i in range(len(pieces)):
+            f.write(f"{chrome}\t{str(i*248)}\t{str((i+1)*248)}\t{str(preds[i, 1])}")
 
 
 @app.route("/api/dnabert/upload", methods=["POST"])
@@ -68,7 +75,7 @@ def respond():
         get_model_prediction(req_path)
         save_annotations_files(pieces, chrome, req_path)
 
-        return jsonify({"acceptor_bed_file":'/generated/dnabert'+f"{req_path}/result.bed", "fasta_file":'/generated/dnabert'+f"{req_path}/dna.fa", "faidx_file":'/generated/dnabert'+f"{req_path}/dna.fa.fai"})
+        return jsonify({"path_to_dev_bed_file":f"{req_path}/result_dev.bed", "path_to_hk_bed_file":f"{req_path}/result_hk.bed", "path_to_fasta_file":f"{req_path}/dna.fa", "path_to_fai_file":f"{req_path}/dna.fai"})
 
 
 if __name__ == "__main__":
