@@ -60,7 +60,6 @@ def save_annotations_files(pieces, chrome, req_path) -> Dict:
         for i in range(len(pieces)):
             f.write(f"{chrome}\t{str(i*248)}\t{str((i+1)*248)}\t{str(preds[i, 0])}")
 
-
     with open(req_path + '/result_hk.bed', 'w', encoding='utf-8') as f:
         preds = np.load(req_path + '/pred_results.npy')
         f.write("chrome\tstart\tend\tHk_log2_enrichment\n")
