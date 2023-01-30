@@ -74,7 +74,12 @@ def respond():
         get_model_prediction(req_path)
         save_annotations_files(pieces, chrome, req_path)
 
-        return jsonify({"path_to_dev_bed_file":f"{req_path}/result_dev.bed", "path_to_hk_bed_file":f"{req_path}/result_hk.bed", "path_to_fasta_file":f"{req_path}/dna.fa", "path_to_fai_file":f"{req_path}/dna.fai"})
+        return jsonify({
+                    "acceptor_bed_file":'/generated/dnabert'+f"{req_path}/result_dev.bed",
+                    "donor_bed_file":'/generated/dnabert'+f"{req_path}/result_hk.bed",
+                    "fasta_file":'/generated/dnabert'+f"{req_path}/dna.fa",
+                    "faidx_file":'/generated/dnabert'+f"{req_path}/dna.fa.fai"
+        })
 
 
 if __name__ == "__main__":
