@@ -22,9 +22,11 @@ respond_files_path = service_folder.joinpath('data/respond_files/spliceai')
 
 def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict]:
     st_time = time.time()
+    # read dna seq from request json
     fasta_seq = service_request.form.get('dna')
     lines = fasta_seq.splitlines()
     seq_name = lines[0].strip()
+    # get chrome name and clean dna seq
     dna_seq = ''.join(lines[1:]).strip()
     chrome = seq_name.split()[0][1:]
 
@@ -78,13 +80,14 @@ def save_annotations_files(annotation: Dict,
     # chr start end (записи только для позитивного класса)
     start = 0
     end = 0
-    for token, label in zip(annotation['seq'], annotation['prediction']):
+    for token, acceptor, donor in zip(annotation['seq'], annotation['acceptors'], annotation['donors']):
         if token not in ['[CLS]', '[SEP]', '[UNK]']:
             end += len(token)
-            if label == 1:
+            if acceptor == 1:
                 string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + token + '\n'
                 acc_file.write(string)
-            elif label == 2:
+
+            elif donor == 1:
                 string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + token + '\n'
                 donor_file.write(string)
 
