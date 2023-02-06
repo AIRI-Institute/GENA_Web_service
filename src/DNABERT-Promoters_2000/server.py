@@ -20,7 +20,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     req_path = f"/DNABERT_storage/request_{date.today()}_{datetime.now().strftime('%H-%M-%S')}"
     os.mkdir(req_path)
 
-    fasta_seq = service_request.json["fasta_seq"]
+    fasta_seq = service_request.form.get('dna')
     seq_name, dna_seq = fasta_seq.split('\n')
     chrome = seq_name.split()[0][1:]
 
@@ -62,7 +62,7 @@ def save_annotations_files(pieces, chrome, req_path) -> Dict:
 
 
 
-@app.route("/api/upload", methods=["POST"])
+@app.route("/api/dnabert-promoters-2000/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
         pieces, chrome, req_path = save_fasta_and_faidx_files(request)

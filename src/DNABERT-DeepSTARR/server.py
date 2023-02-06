@@ -20,7 +20,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     req_path = f"/DNABERT_storage/request_{date.today()}_{datetime.now().strftime('%H-%M-%S')}"
     os.mkdir(req_path)
 
-    fasta_seq = service_request.json["fasta_seq"]
+    fasta_seq = service_request.form.get('dna')
     seq_name, dna_seq = fasta_seq.split('\n')
     chrome = seq_name.split()[0][1:]
 
@@ -54,28 +54,28 @@ def get_model_prediction(req_path: str):
 
 def save_annotations_files(pieces, chrome, req_path) -> Dict:
     
-    with open(req_path + '/result_dev.bed', 'w', encoding='utf-8') as f:
+    with open(req_path + '/result_dev.bedgraph', 'w', encoding='utf-8') as f:
         preds = np.load(req_path + '/pred_results.npy')
         f.write("track name=\"Dev_log2_enrichment\"\n")
         for i in range(len(pieces)):
             f.write(f"{chrome}\t{str(i*248)}\t{str((i+1)*248)}\t{str(preds[i, 0])}\n")
 
 
-    with open(req_path + '/result_hk.bed', 'w', encoding='utf-8') as f:
+    with open(req_path + '/result_hk.bedgraph', 'w', encoding='utf-8') as f:
         preds = np.load(req_path + '/pred_results.npy')
         f.write("track name=\"Hk_log2_enrichment\"\n")
         for i in range(len(pieces)):
             f.write(f"{chrome}\t{str(i*248)}\t{str((i+1)*248)}\t{str(preds[i, 1])}\n")
 
 
-@app.route("/api/upload", methods=["POST"])
+@app.route("/api/dnabert-deepstarr/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
         pieces, chrome, req_path = save_fasta_and_faidx_files(request)
         get_model_prediction(req_path)
         save_annotations_files(pieces, chrome, req_path)
 
-        return jsonify({"path_to_dev_bed_file":f"{req_path}/result_dev.bed", "path_to_hk_bed_file":f"{req_path}/result_hk.bed", "path_to_fasta_file":f"{req_path}/dna.fa", "path_to_fai_file":f"{req_path}/dna.fai"})
+        return jsonify({"path_to_dev_bed_file":f"{req_path}/result_dev.bedgraph", "path_to_hk_bed_file":f"{req_path}/result_hk.bedgraph", "path_to_fasta_file":f"{req_path}/dna.fa", "path_to_fai_file":f"{req_path}/dna.fai"})
 
 
 if __name__ == "__main__":

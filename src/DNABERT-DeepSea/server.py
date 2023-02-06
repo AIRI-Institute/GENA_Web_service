@@ -21,7 +21,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     req_path = f"/DNABERT_storage/request_{date.today()}_{datetime.now().strftime('%H-%M-%S')}"
     os.mkdir(req_path)
 
-    fasta_seq = service_request.json["fasta_seq"]
+    fasta_seq = service_request.form.get('dna')
     seq_name, dna_seq = fasta_seq.split('\n')
     chrome = seq_name.split()[0][1:]
 
@@ -49,7 +49,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
 
 
 def get_model_prediction(req_path: str):
-    subprocess.run(["python3.9", "run_finetune.py", "--model_type", "dnalong", "--tokenizer_name=dna6", "--model_name_or_path", "/DNABERT6", "--task_name", "gena-deepsea", "--do_predict", "--predict_dir", f"{req_path}", "--data_dir",  f"{req_path}", "--max_seq_length", "1024", "--per_gpu_pred_batch_size", "32", "--output_dir", "/DNABERT6", "--n_process",  "8"])
+    subprocess.run(["python3.9", "run_finetune.py", "--model_type", "dnalong", "--tokenizer_name=dna6", "--model_name_or_path", "/DNABERT6", "--task_name", "deepsea", "--do_predict", "--predict_dir", f"{req_path}", "--data_dir",  f"{req_path}", "--max_seq_length", "1024", "--per_gpu_pred_batch_size", "32", "--output_dir", "/DNABERT6", "--n_process",  "8"])
 
 
 def save_annotations_files(pieces, chrome, req_path) -> Dict:
@@ -83,7 +83,7 @@ def save_annotations_files(pieces, chrome, req_path) -> Dict:
 
 
 
-@app.route("/api/upload", methods=["POST"])
+@app.route("/api/dnabert-deepsea/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
         pieces, chrome, req_path = save_fasta_and_faidx_files(request)

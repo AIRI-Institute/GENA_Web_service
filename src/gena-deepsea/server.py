@@ -22,7 +22,7 @@ respond_files_path.mkdir(exist_ok=True)
 
 def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict]:
     st_time = time.time()
-    fasta_seq = service_request.json["fasta_seq"]
+    fasta_seq = service_request.form.get('dna')
     seq_name, dna_seq = fasta_seq.split('\n')
     chrome = seq_name.split()[0][1:]
 
@@ -93,7 +93,7 @@ def save_annotations_files(annotation: Dict,
     return respond_dict
 
 
-@app.route("/gena-deepsea", methods=["POST"])
+@app.route("/api/gena-deepsea/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
         dna_seq, chrome, respond_dict = save_fasta_and_faidx_files(request)
@@ -104,4 +104,4 @@ def respond():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=3000)
+    app.run(debug=True, host="0.0.0.0", port=3000)
