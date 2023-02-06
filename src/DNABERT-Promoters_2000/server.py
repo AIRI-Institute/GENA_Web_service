@@ -69,7 +69,13 @@ def respond():
         get_model_prediction(req_path)
         save_annotations_files(pieces, chrome, req_path)
 
-        return jsonify({"path_to_bed_file":f"{req_path}/result.bed", "path_to_fasta_file":f"{req_path}/dna.fa", "path_to_fai_file":f"{req_path}/dna.fai"})
+        return jsonify({
+            "bed": [
+                f"dnabert-promoters-2000{req_path}/result.bed"
+            ],
+            "fasta_file":f"/generated/dnabert-promoters-2000{req_path}/dna.fa",
+            "fai_file":f"/generated/dnabert-promoters-2000{req_path}/dna.fa.fai"
+        })
 
 
 if __name__ == "__main__":

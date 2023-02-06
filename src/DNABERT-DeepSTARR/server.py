@@ -75,7 +75,14 @@ def respond():
         get_model_prediction(req_path)
         save_annotations_files(pieces, chrome, req_path)
 
-        return jsonify({"path_to_dev_bed_file":f"{req_path}/result_dev.bedgraph", "path_to_hk_bed_file":f"{req_path}/result_hk.bedgraph", "path_to_fasta_file":f"{req_path}/dna.fa", "path_to_fai_file":f"{req_path}/dna.fai"})
+        return jsonify({
+            "bed": [
+                f"/generated/dnabert-deepstarr{req_path}/result_dev.bedgraph",
+                f"/generated/dnabert-deepstarr{req_path}/result_hk.bedgraph",
+            ],
+            "fasta_file":f"/generated/dnabert-deepstarr{req_path}/dna.fa",
+            "fai_file":f"/generated/dnabert-deepstarr{req_path}/dna.fa.fai"
+        })
 
 
 if __name__ == "__main__":
