@@ -102,7 +102,7 @@ def save_annotations_files(annotation: Dict,
     return respond_dict
 
 
-@app.route("/api/gena/upload", methods=["POST"])
+@app.route("/api/gena-spliceai/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
         dna_seq, chrome, respond_dict = save_fasta_and_faidx_files(request)

@@ -83,7 +83,7 @@ def save_annotations_files(pieces, chrome, req_path) -> Dict:
 
 
 
-@app.route("/api/upload", methods=["POST"])
+@app.route("/api/dnabert-deepsea/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
         pieces, chrome, req_path = save_fasta_and_faidx_files(request)
