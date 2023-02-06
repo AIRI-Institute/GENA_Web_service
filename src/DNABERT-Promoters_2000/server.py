@@ -71,7 +71,7 @@ def respond():
 
         return jsonify({
             "bed": [
-                f"dnabert-promoters-2000{req_path}/result.bed"
+                f"/generated/dnabert-promoters-2000{req_path}/result.bed"
             ],
             "fasta_file":f"/generated/dnabert-promoters-2000{req_path}/dna.fa",
             "fai_file":f"/generated/dnabert-promoters-2000{req_path}/dna.fa.fai"
