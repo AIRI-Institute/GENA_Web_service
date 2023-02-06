@@ -70,7 +70,7 @@ def save_annotations_files(annotation: Dict,
     for file_type in annotation_table['FileName'].unique():
         file_name = f"request_{date.today()}_{datetime.now().strftime('%H-%M-%S')}_{file_type}.bed"
         respond_file = respond_files_path.joinpath(file_name)
-        respond_dict['acceptor_bed_file'] = str(respond_file)
+        respond_dict[f'{file_type}_bed_file'] = str(respond_file)
         file = respond_file.open('w', encoding=coding_type)
 
         indexes = list(annotation_table[annotation_table['FileName'] == file_type].index)
