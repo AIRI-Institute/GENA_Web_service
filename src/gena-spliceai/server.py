@@ -1,29 +1,33 @@
+import os
 import logging
 import time
 from datetime import date, datetime
 from typing import Dict, Tuple
 
 import numpy as np
-import pandas as pd
 from flask import Flask, request, jsonify
 from pyfaidx import Faidx
 
-from src.service import DeepSeaConf, DeepSeaService, service_folder
+from src import service_folder
+from src.service import SpliceAIConf, SpliceaiService
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-conf = DeepSeaConf()
-instance_class = DeepSeaService(conf)
-respond_files_path = service_folder.joinpath('data/respond_files/')
-respond_files_path.mkdir(exist_ok=True)
+conf = SpliceAIConf()
+instance_class = SpliceaiService(conf)
+respond_files_path = service_folder.joinpath('data/respond_files/gena-spliceai')
 
 
 def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict]:
     st_time = time.time()
-    fasta_seq = service_request.json["fasta_seq"]
-    seq_name, dna_seq = fasta_seq.split('\n')
+    # read dna seq from request json
+    fasta_seq = service_request.form.get('dna')
+    lines = fasta_seq.splitlines()
+    seq_name = lines[0].strip()
+    # get chrome name and clean dna seq
+    dna_seq = ''.join(lines[1:]).strip()
     chrome = seq_name.split()[0][1:]
 
     # write fasta file
@@ -62,30 +66,35 @@ def save_annotations_files(annotation: Dict,
                            delimiter: str = '\t') -> Dict:
     st_time = time.time()
 
-    # read annotation file
-    annotation_table = pd.read_csv(service_folder.joinpath('data/checkpoints/annotation_table.csv'),
-                                   index_col='targetID')
+    # write fasta file
+    acceptor_file_name = f"request_{date.today()}_{datetime.now().strftime('%H-%M-%S')}_acceptor.bed"
+    respond_acc_file = respond_files_path.joinpath(acceptor_file_name)
+    respond_dict['acceptor_bed_file'] = str(respond_acc_file)
+    acc_file = respond_acc_file.open('w', encoding=coding_type)
 
-    # write bed files
-    for file_type in annotation_table['FileName'].unique():
-        file_name = f"request_{date.today()}_{datetime.now().strftime('%H-%M-%S')}_{file_type}.bed"
-        respond_file = respond_files_path.joinpath(file_name)
-        respond_dict['acceptor_bed_file'] = str(respond_file)
-        file = respond_file.open('w', encoding=coding_type)
+    donor_file_name = f"request_{date.today()}_{datetime.now().strftime('%H-%M-%S')}_donor.bed"
+    respond_donor_file = respond_files_path.joinpath(donor_file_name)
+    respond_dict['donor_bed_file'] = str(respond_donor_file)
+    donor_file = respond_donor_file.open('w', encoding=coding_type)
 
-        indexes = list(annotation_table[annotation_table['FileName'] == file_type].index)
-        file_labels = annotation['prediction'][:, indexes]
+    # chr start end (записи только для позитивного класса)
+    start = 0
+    end = 0
+    for token, acceptor, donor in zip(annotation['seq'], annotation['acceptors'], annotation['donors']):
+        if token not in ['[CLS]', '[SEP]', '[UNK]']:
+            end += len(token)
+            if acceptor == 1:
+                string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + token + '\n'
+                acc_file.write(string)
 
-        for n, batch_element in enumerate(file_labels):
-            for label, feature_index in zip(batch_element, indexes):
-                start = 200 * n
-                end = 200 * (n + 1)
-                if label == 1:
-                    feature_name = annotation_table['RecordName'][feature_index]
-                    string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + feature_name + '\n'
-                    file.write(string)
+            elif donor == 1:
+                string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + token + '\n'
+                donor_file.write(string)
 
-        file.close()
+            start += len(token)
+
+    acc_file.close()
+    donor_file.close()
 
     total_time = time.time() - st_time
     logger.info(f"write acceptor and donor bed files exec time: {total_time:.3f}s")
@@ -93,15 +102,19 @@ def save_annotations_files(annotation: Dict,
     return respond_dict
 
 
-@app.route("/deepsea", methods=["POST"])
+@app.route("/api/gena/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
         dna_seq, chrome, respond_dict = save_fasta_and_faidx_files(request)
         model_out = get_model_prediction(dna_seq)
         result = save_annotations_files(model_out, chrome, respond_dict)
 
+        # extract filenames
+        for key, value in result.items():
+            result[key] = '/generated/gena/' + os.path.basename(value)
+
         return jsonify(result)
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=3000)
+    app.run(debug=False, host="0.0.0.0", port=3000)

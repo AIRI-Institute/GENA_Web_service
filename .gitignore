@@ -1,9 +1,9 @@
 *.tar.gz
 *.zip
-src/spliceai/data/checkpoints/spliceai/*
-!src/spliceai/data/checkpoints/spliceai/.gitkeep
-src/spliceai/data/respond_files/spliceai/*
-!src/spliceai/data/respond_files/spliceai/.gitkeep
+src/gena-spliceai/data/checkpoints/spliceai/*
+!src/gena-spliceai/data/checkpoints/spliceai/.gitkeep
+src/gena-spliceai/data/respond_files/spliceai/*
+!src/gena-spliceai/data/respond_files/spliceai/.gitkeep
 *.pyc
 .DS_Store/*
 .ipynb_checkpoints/*
