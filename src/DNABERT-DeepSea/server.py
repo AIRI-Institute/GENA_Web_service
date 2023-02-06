@@ -56,11 +56,11 @@ def save_annotations_files(pieces, chrome, req_path) -> Dict:
 
     annotation_table = pd.read_csv('annotation_table.csv', index_col='targetID')
     preds = np.load(req_path + '/pred_results.npy')
-    json_files = {}
+    json_files_bed = []
 
     # write bed files
     for file_type in annotation_table['FileName'].unique():
-        json_files[f'path_to_{file_type}_bed_file'] = f"{req_path}/result{file_type}.bed"
+        json_files_bed.append(f"/generated/dnabert-deepsea{req_path}/result{file_type}.bed")
         with open(req_path + f'/result_{file_type}.bed', 'w', encoding='utf-8') as f:
 
             f.write(f"track name=\"{file_type}\"\n")
@@ -78,7 +78,7 @@ def save_annotations_files(pieces, chrome, req_path) -> Dict:
                             feature_name = annotation_table['RecordName'][feature_index]
                             f.write(f"{chrome}\t{str(start)}\t{str(end)}\t{feature_name}\n")
 
-    return json_files
+    return json_files_bed
 
 
 
@@ -88,11 +88,13 @@ def respond():
     if request.method == 'POST':
         pieces, chrome, req_path = save_fasta_and_faidx_files(request)
         get_model_prediction(req_path)
-        json_files = save_annotations_files(pieces, chrome, req_path)
-        json_files["path_to_fasta_file"] = f"{req_path}/dna.fa"
-        json_files["path_to_fai_file"] = f"{req_path}/dna.fai"
+        bed_files = save_annotations_files(pieces, chrome, req_path)
 
-        return jsonify(json_files)
+        return jsonify({
+            "bed": bed_files,
+            "fasta_file":f"/generated/dnabert-deepsea{req_path}/dna.fa",
+            "fai_file":f"/generated/dnabert-deepsea{req_path}/dna.fa.fai"
+        })
 
 
 if __name__ == "__main__":
