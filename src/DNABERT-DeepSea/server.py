@@ -21,7 +21,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     req_path = f"/DNABERT_storage/request_{date.today()}_{datetime.now().strftime('%H-%M-%S')}"
     os.mkdir(req_path)
 
-    fasta_seq = service_request.json["fasta_seq"]
+    fasta_seq = service_request.form.get('dna')
     seq_name, dna_seq = fasta_seq.split('\n')
     chrome = seq_name.split()[0][1:]
 
