@@ -117,26 +117,22 @@ def save_annotations_files(annotation: List[Dict],
     # create empty bed file
     file_name = f"{request_name}_{seq_name}_promoters.bed"
     respond_file = respond_files_path.joinpath(file_name)
-    respond_dict[f'{sample_name}_bed_file'] = str(respond_file)
+    respond_dict[f'{seq_name}_bed_file'] = str(respond_file)
     promoters_file = respond_file.open('w', encoding=coding_type)
 
-    # todo: rebuild
-    # -------------------------------------------------------------------------------------------------------------
-    for seq_element, prediction in zip(annotation['seq'], annotation['prediction']):
-        if prediction == 1:
-            string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + token + '\n'
-    # -------------------------------------------------------------------------------------------------------------
-    # write bed file
     start = 0
     end = 0
-    for token, prediction in zip(annotation['seq'], annotation['prediction']):
-        if token not in ['[CLS]', '[SEP]', '[UNK]']:
-            end += len(token)
-            if prediction == 1:
-                string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + token + '\n'
+    for seq_element, prediction in zip(annotation['seq'], annotation['prediction']):
+        if prediction == 1:
+            end += conf.working_segment
+        else:
+            if end != 0:
+                string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + 'P' + '\n'
                 promoters_file.write(string)
-
-            start += len(token)
+                start = end
+            else:
+                start += conf.working_segment
+                end += conf.working_segment
 
     promoters_file.close()
 
