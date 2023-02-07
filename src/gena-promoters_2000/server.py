@@ -1,7 +1,7 @@
 import logging
 import time
 from datetime import date, datetime
-from typing import Dict, Tuple
+from typing import Dict, List, Optional, Tuple, Sized
 
 import numpy as np
 import pandas as pd
@@ -20,53 +20,112 @@ respond_files_path = service_folder.joinpath('data/respond_files/')
 respond_files_path.mkdir(exist_ok=True)
 
 
-def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict]:
+def processing_fasta_file(content: str) -> Dict[str, str]:
+    file_queue = {}
+    sample_name = 'error'
+    for line in content.split('\n'):
+        if line.startswith('>'):
+            sample_name = line[1:]
+            file_queue[sample_name] = ''
+        elif len(line) == 0:
+            sample_name = 'error'
+        else:
+            file_queue[sample_name] += line
+
+    return file_queue
+
+
+def slicer(string: Sized, segment: int, step: Optional[int] = None) -> List[str]:
+    elements = list()
+    string_len = len(string)
+
+    if step is not None:
+        ind = 0
+        while string_len >= segment:
+            elements.append(string[(ind * step):(ind * step) + segment])
+            string_len -= step
+            ind += 1
+        # добавляем оставшийся конец строки
+        elements.append(string[:-string_len])
+    else:
+        ind = 0
+        while string_len >= segment:
+            elements.append(string[(ind * segment):((ind+1) * segment)])
+            string_len -= segment
+            ind += 1
+        # добавляем оставшийся конец строки
+        if string_len > 0:
+            elements.append(string[:-string_len])
+
+    return elements
+
+
+def save_fasta_and_faidx_files(service_request: request, request_name: str) -> Tuple[Dict, Dict]:
+    faidx_time = time.time()
+
+    respond_dict = {}
+    samples_queue = processing_fasta_file(service_request.json["fasta_seq"])
+    for sample_name, dna_seq in samples_queue.items():
+        st_time = time.time()
+
+        # write fasta file
+        sample_name = sample_name.replace(' ', '_')
+        file_name = f"{request_name}_{sample_name}.fa"
+        respond_fa_file = respond_files_path.joinpath(file_name)
+        with respond_fa_file.open('w', encoding='utf-8') as fasta_file:
+            fasta_file.write(dna_seq)
+
+        respond_dict[f"{sample_name}_fasta_file"] = str(respond_fa_file)
+
+        # splice dna sequence to necessary pieces
+        samples_queue[sample_name] = slicer(dna_seq, segment=conf.working_segment, step=conf.segment_step)
+        samples_queue[sample_name] = slicer(samples_queue[sample_name], segment=conf.batch_size)  # List of batches
+
+        total_time = time.time() - st_time
+        logger.info(f"write {sample_name} fasta file exec time: {total_time:.3f}s")
+
+        # write faidx file
+        st_time = time.time()
+        Faidx(respond_fa_file)
+        respond_dict[f"{sample_name}_faidx_file"] = str(respond_fa_file) + '.fai'
+        total_time = time.time() - st_time
+        logger.info(f"create and write {sample_name} faidx file exec time: {total_time:.3f}s")
+
+    total_time = time.time() - faidx_time
+    logger.info(f"create and write faidx file for all samples exec time: {total_time:.3f}s")
+
+    return samples_queue, respond_dict
+
+
+def get_model_prediction(batch: List[str]) -> np.array:
     st_time = time.time()
-    fasta_seq = service_request.json["fasta_seq"]
-    seq_name, dna_seq = fasta_seq.split('\n')
-    chrome = seq_name.split()[0][1:]
-
-    # write fasta file
-    file_name = f"request_{date.today()}_{datetime.now().strftime('%H-%M-%S')}.fa"
-    respond_fa_file = respond_files_path.joinpath(file_name)
-    with respond_fa_file.open('w', encoding='utf-8') as fasta_file:
-        fasta_file.write(fasta_seq)
-
-    total_time = time.time() - st_time
-    logger.info(f"write fasta file exec time: {total_time:.3f}s")
-
-    # write faidx file
-    st_time = time.time()
-
-    Faidx(respond_fa_file)
-
-    total_time = time.time() - st_time
-    logger.info(f"create and write faidx file exec time: {total_time:.3f}s")
-
-    return dna_seq, chrome, {'fasta_file': str(respond_fa_file), 'faidx_file': str(respond_fa_file) + '.fai'}
-
-
-def get_model_prediction(dna_seq: str) -> np.array:
-    st_time = time.time()
-    result = instance_class(dna_seq)
+    result = instance_class(batch)
     total_time = time.time() - st_time
     logger.info(f"splice_ai model prediction exec time: {total_time:.3f}s")
 
     return result
 
 
-# todo: rebuild
-def save_annotations_files(annotation: Dict,
+def save_annotations_files(annotation: List[Dict],
                            seq_name: str,
                            respond_dict: Dict,
+                           request_name: str,
                            coding_type: str = 'utf-8',
                            delimiter: str = '\t') -> Dict:
     st_time = time.time()
+
     # create empty bed file
-    file_name = f"request_{date.today()}_{datetime.now().strftime('%H-%M-%S')}_promoters.bed"
+    file_name = f"{request_name}_{seq_name}_promoters.bed"
     respond_file = respond_files_path.joinpath(file_name)
-    respond_dict['promoters_bed_file'] = str(respond_file)
+    respond_dict[f'{sample_name}_bed_file'] = str(respond_file)
     promoters_file = respond_file.open('w', encoding=coding_type)
+
+    # todo: rebuild
+    # -------------------------------------------------------------------------------------------------------------
+    for seq_element, prediction in zip(annotation['seq'], annotation['prediction']):
+        if prediction == 1:
+            string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + token + '\n'
+    # -------------------------------------------------------------------------------------------------------------
     # write bed file
     start = 0
     end = 0
@@ -90,11 +149,18 @@ def save_annotations_files(annotation: Dict,
 @app.route("/gena-promoters", methods=["POST"])
 def respond():
     if request.method == 'POST':
-        dna_seq, chrome, respond_dict = save_fasta_and_faidx_files(request)
-        model_out = get_model_prediction(dna_seq)
-        result = save_annotations_files(model_out, chrome, respond_dict)
+        request_name = f"request_{date.today()}_{datetime.now().microsecond}"
+        samples_queue, respond_dict = save_fasta_and_faidx_files(request, request_name)
+        # run model on inputs sequences
+        for sample_name, batches in samples_queue.items():
+            sample_results = []
+            for batch in batches:
+                sample_results.append(get_model_prediction(batch))  # Dicts with list 'seq'
+                                                                    # and 'prediction' vector of batch size
 
-        return jsonify(result)
+            respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name)
+
+        return jsonify(respond_dict)
 
 
 if __name__ == "__main__":

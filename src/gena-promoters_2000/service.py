@@ -15,6 +15,9 @@ service_folder = Path(__file__).parent.absolute()
 @dataclass
 class PromotersConf:
     bpe_dropout = 0.0
+    working_segment = 2000
+    segment_step = 1000
+    batch_size = 32
     tokenizer = service_folder.joinpath('data/tokenizers/t2t_1000h_multi_32k/')
     model_cls = 'src.gena_lm.modeling_bert:BertForSequenceClassification'
     model_cfg = service_folder.joinpath('data/configs/L24-H1024-A16-V32k-preln-lastln.json')
@@ -110,9 +113,6 @@ class PromotersService:
         return batch
 
     def __call__(self, dna_examples: List[str]):
-        if len(dna_examples) > 32:
-            return {"ERROR: batch size bigger than 32;"}
-
         # preprocessing
         batch = []
         for dna_seq in dna_examples:
@@ -123,10 +123,14 @@ class PromotersService:
         model_out = self.model(**{k: batch[k] for k in batch if k in self.model_forward_args})
 
         # postprocessing
+        service_response = dict()
         input_ids = batch['input_ids'].detach().numpy().flatten()
         predictions = torch.argmax(model_out['logits'].detach(), dim=-1).numpy()
-        service_response = dict()
         service_response['prediction'] = predictions
-        service_response['seq'] = self.tokenizer.convert_ids_to_tokens(input_ids, skip_special_tokens=True)
+
+        service_response['seq'] = []
+        for batch_element in input_ids:
+            service_response['seq'].append(self.tokenizer.convert_ids_to_tokens(batch_element,
+                                                                                skip_special_tokens=True))
 
         return service_response
