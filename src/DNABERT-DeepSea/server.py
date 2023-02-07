@@ -60,7 +60,7 @@ def save_annotations_files(pieces, chrome, req_path) -> Dict:
 
     # write bed files
     for file_type in annotation_table['FileName'].unique():
-        json_files_bed.append(f"/generated/dnabert-deepsea{req_path}/result{file_type}.bed")
+        json_files_bed.append(f"/generated/dnabert-deepsea{req_path}/result_{file_type}.bed")
         with open(req_path + f'/result_{file_type}.bed', 'w', encoding='utf-8') as f:
 
             f.write(f"track name=\"{file_type}\"\n")

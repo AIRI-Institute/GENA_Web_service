@@ -43,7 +43,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     total_time = time.time() - st_time
     logger.info(f"create and write faidx file exec time: {total_time:.3f}s")
 
-    return dna_seq, chrome, {'fasta_file': str(respond_fa_file), 'faidx_file': str(respond_fa_file) + '.fai'}
+    return dna_seq, chrome, {'fasta_file': '/generated/gena-deepsea/' + file_name, 'fai_file': '/generated/gena-deepsea/' + file_name + '.fai'}
 
 
 def get_model_prediction(dna_seq: str) -> np.array:
@@ -61,6 +61,7 @@ def save_annotations_files(annotation: Dict,
                            coding_type: str = 'utf-8',
                            delimiter: str = '\t') -> Dict:
     st_time = time.time()
+    respond_dict['bed'] = []
 
     # read annotation file
     annotation_table = pd.read_csv(service_folder.joinpath('data/checkpoints/annotation_table.csv'),
@@ -70,7 +71,7 @@ def save_annotations_files(annotation: Dict,
     for file_type in annotation_table['FileName'].unique():
         file_name = f"request_{date.today()}_{datetime.now().strftime('%H-%M-%S')}_{file_type}.bed"
         respond_file = respond_files_path.joinpath(file_name)
-        respond_dict[f'{file_type}_bed_file'] = str(respond_file)
+        respond_dict['bed'].append('/generated/gena-deepsea/' + file_name)
         file = respond_file.open('w', encoding=coding_type)
 
         indexes = list(annotation_table[annotation_table['FileName'] == file_type].index)
