@@ -47,7 +47,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     total_time = time.time() - st_time
     logger.info(f"create and write faidx file exec time: {total_time:.3f}s")
 
-    return dna_seq, chrome, {'fasta_file': str(respond_fa_file), 'faidx_file': str(respond_fa_file) + '.fai'}
+    return dna_seq, chrome, {'fasta_file': '/generated/gena-spliceai/' + file_name, 'faidx_file': '/generated/gena-spliceai/' + file_name + '.fai'}
 
 
 def get_model_prediction(dna_seq: str) -> np.array:
@@ -65,16 +65,17 @@ def save_annotations_files(annotation: Dict,
                            coding_type: str = 'utf-8',
                            delimiter: str = '\t') -> Dict:
     st_time = time.time()
+    respond_dict['bed'] = []
 
     # write fasta file
     acceptor_file_name = f"request_{date.today()}_{datetime.now().strftime('%H-%M-%S')}_acceptor.bed"
     respond_acc_file = respond_files_path.joinpath(acceptor_file_name)
-    respond_dict['acceptor_bed_file'] = str(respond_acc_file)
+    respond_dict['bed'].append('/generated/gena-spliceai/' + acceptor_file_name)
     acc_file = respond_acc_file.open('w', encoding=coding_type)
 
     donor_file_name = f"request_{date.today()}_{datetime.now().strftime('%H-%M-%S')}_donor.bed"
     respond_donor_file = respond_files_path.joinpath(donor_file_name)
-    respond_dict['donor_bed_file'] = str(respond_donor_file)
+    respond_dict['bed'].append('/generated/gena-spliceai/' + donor_file_name)
     donor_file = respond_donor_file.open('w', encoding=coding_type)
 
     # chr start end (записи только для позитивного класса)
@@ -108,10 +109,6 @@ def respond():
         dna_seq, chrome, respond_dict = save_fasta_and_faidx_files(request)
         model_out = get_model_prediction(dna_seq)
         result = save_annotations_files(model_out, chrome, respond_dict)
-
-        # extract filenames
-        for key, value in result.items():
-            result[key] = '/generated/gena/' + os.path.basename(value)
 
         return jsonify(result)
 
