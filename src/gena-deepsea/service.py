@@ -111,8 +111,7 @@ class DeepSeaService:
         model_out = self.model(**{k: batch[k] for k in batch if k in self.model_forward_args})
 
         predictions = torch.sigmoid(model_out['logits']).detach().numpy()
-        labels = np.where(predictions < 0.5, predictions, 1)
-        labels = np.where(predictions > 0.5, labels, 0)
+        labels = np.where(predictions > 0.5, 1, 0)
         input_ids = batch['input_ids'].detach().numpy().flatten()
 
         service_response = dict()
