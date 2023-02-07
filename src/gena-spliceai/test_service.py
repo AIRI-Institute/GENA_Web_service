@@ -27,82 +27,7 @@ class SpliceAIPreprocess:
         self.targets_len = targets_len
         # load default target value
         def_val = service_folder.joinpath('data/checkpoints/def_target_val.npy')
-        self.default_target_value = np.load(def_val)
-
-    @staticmethod
-    def get_token_classes(seq_encoding, target, targets_offset):
-        tokens_info = pd.DataFrame.from_records(
-            seq_encoding["offset_mapping"][0], columns=["st", "en"]
-        )
-        tokens_info["length"] = tokens_info["en"] - tokens_info["st"]
-
-        # handle special tokens which can be anywhere in the seq with the offeset (0,0)
-        nonzero_length_mask = tokens_info["length"].values > 0
-
-        # all other tokens should have ascending token_start coordinate
-        assert np.all(
-            tokens_info[nonzero_length_mask]["st"].values[:-1]
-            <= tokens_info[nonzero_length_mask]["st"].values[1:]
-        )
-
-        # fill target class information
-        target_field_names = []
-        for target_class in [1, 2]:
-            target_field_name = "class_" + str(target_class)
-            target_field_names.append(target_field_name)
-            tokens_info[target_field_name] = 0
-
-            nonzero_target_positions = (
-                    np.where(target == target_class)[0] + targets_offset
-            )  # non-zero target coordinates
-            nonzero_target_token_ids = (
-                    np.searchsorted(
-                        tokens_info[nonzero_length_mask]["st"],
-                        nonzero_target_positions,
-                        side="right",
-                    )
-                    - 1
-            )  # ids of tokens
-            # containing non-zero targets
-            # in sequence coordinate system
-            nonzero_target_token_ids = (
-                tokens_info[nonzero_length_mask].iloc[nonzero_target_token_ids].index
-            )
-            tokens_info.loc[nonzero_target_token_ids, target_field_name] = target_class
-            # tokens_info.loc[nonzero_target_token_ids, target_field_name] = 1
-            # fill all service tokens with -100
-            tokens_info.loc[~nonzero_length_mask, target_field_name] = -100
-
-            # fill context tokens with -100
-            target_first_token = (
-                    np.searchsorted(
-                        tokens_info[nonzero_length_mask]["st"],
-                        targets_offset,
-                        side="right",
-                    )
-                    - 1
-            )
-
-            mask_ids = (
-                tokens_info.loc[nonzero_length_mask, :].iloc[:target_first_token].index
-            )
-            tokens_info.loc[mask_ids, target_field_name] = -100
-
-            target_last_token = (
-                    np.searchsorted(
-                        tokens_info[nonzero_length_mask]["st"],
-                        targets_offset + len(target) - 1,
-                        side="right",
-                    )
-                    - 1
-            )
-            if target_last_token + 1 < len(
-                    tokens_info.loc[nonzero_length_mask, target_field_name]
-            ):
-                target_last_token += 1
-                mask_ids = tokens_info.loc[nonzero_length_mask, :][target_last_token:].index
-                tokens_info.loc[mask_ids, target_field_name] = -100
-        return tokens_info[target_field_names].values
+        self.default_target_value = np.load(str(def_val))
 
     def tokenize_inputs(self, seq, target):
         depad_seq_l = seq.lstrip("N")
@@ -146,7 +71,6 @@ class SpliceAIPreprocess:
             assert np.all(encoding["attention_mask"][0] == 1)
             assert np.all(encoding["token_type_ids"][0] == 0)
 
-        labels = self.get_token_classes(mid_encoding, target, 0)
         token_type_ids = np.zeros(shape=self.max_seq_len, dtype=np.int64)
 
         boundary_pos = int(
@@ -182,9 +106,7 @@ class SpliceAIPreprocess:
                     [self.tokenizer.convert_tokens_to_ids("[SEP]")] * 2,
                 ]
             )
-            labels = np.concatenate(
-                [[[-100, -100]] * 2, labels[st:en], [[-100, -100]] * 2]
-            )
+
         # case II. target+context encoding < max_seq_len, we need to pad
         elif L_mid + L_left + L_right + n_service_tokens <= self.max_seq_len:
             n_pads = self.max_seq_len - (L_mid + L_left + L_right + n_service_tokens)
@@ -200,16 +122,7 @@ class SpliceAIPreprocess:
                     [self.tokenizer.convert_tokens_to_ids("[SEP]")],
                 ]
             )
-            labels = np.concatenate(
-                [
-                    [[-100, -100]],
-                    [[-100, -100]] * (boundary_pos + 1),
-                    labels,
-                    [[-100, -100]]
-                    * (len(context_encoding["input_ids"][0]) - boundary_pos - 1 + 1),
-                    [[-100, -100]] * (n_pads + 1)
-                ]
-            )
+
         # case III. target+context encoding > max_seq_len, we need to trim
         elif L_mid + L_left + L_right + n_service_tokens > self.max_seq_len:
             # compute trimming. The aims are to
@@ -249,41 +162,18 @@ class SpliceAIPreprocess:
                     [self.tokenizer.convert_tokens_to_ids("[SEP]")],
                 ]
             )
-            labels = np.concatenate(
-                [
-                    [[-100, -100]],
-                    [[-100, -100]] * (boundary_pos - trim_left + 1),
-                    labels,
-                    [[-100, -100]],
-                    [[-100, -100]] * (L_right - trim_right + 1),
-                ]
-            )
+
         else:
             raise ValueError("Unexpected encoding length")
 
-        assert len(input_ids) == len(labels) == self.max_seq_len
-
-        # convert labels to (seq_len, n_labels) shape
-        n_labels = 3
-        labels_ohe = np.zeros((len(labels), n_labels))
-        for label in range(n_labels):
-            labels_ohe[(labels == label).max(axis=-1), label] = 1.0
-
-        # set mask to 0.0 for tokens with no labels, these examples should not be used for loss computation
-        labels_mask = np.ones(len(labels))
-        labels_mask[labels_ohe.sum(axis=-1) == 0.0] = 0.0
+        assert len(input_ids) == self.max_seq_len
 
         attention_mask = np.array(input_ids != self.tokenizer.pad_token_id,
                                   dtype=np.int64
                                   )
-        return {
-            "input_ids": input_ids,
-            "token_type_ids": token_type_ids,
-            "attention_mask": attention_mask,
-            "labels": labels,
-            "labels_ohe": labels_ohe,
-            "labels_mask": labels_mask,
-        }
+        return {"input_ids": input_ids,
+                "token_type_ids": token_type_ids,
+                "attention_mask": attention_mask}
 
     def __call__(self, seq: str):
         return self.tokenize_inputs(seq, self.default_target_value)
@@ -324,10 +214,7 @@ class SpliceaiService:
         bs = 1
         res_dict = {'input_ids': torch.from_numpy(batch['input_ids'])[None, ...].int(),
                     'token_type_ids': torch.from_numpy(batch['token_type_ids'])[None, ...].int(),
-                    'attention_mask': torch.from_numpy(batch['attention_mask'])[None, ...].float(),
-                    'labels': torch.from_numpy(batch['labels_ohe'])[None, ...].float(),
-                    'labels_mask': torch.from_numpy(batch['labels_mask'])[None, ...].float(),
-                    'pos_weight': self.pos_weight.repeat(bs, seq_len, 1)}
+                    'attention_mask': torch.from_numpy(batch['attention_mask'])[None, ...].float()}
 
         return res_dict
 
