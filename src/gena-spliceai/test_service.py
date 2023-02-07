@@ -109,8 +109,11 @@ class SpliceAIPreprocess:
         if self.targets_offset - (len(seq) - len(depad_seq_l)) < 0:
             depad_seq_l = seq[self.targets_offset:]
         targets_offset = self.targets_offset - (len(seq) - len(depad_seq_l))
+
         assert targets_offset >= 0
-        assert targets_offset + self.targets_len <= len(depad_seq_l)
+        if targets_offset + self.targets_len <= len(depad_seq_l):
+            print(f"ATTENTION! The length of the incoming sequence is less than 10,000 nucleotides; the model's "
+                  f"response under given conditions may not be entirely correct.")
 
         depad_seq_both = depad_seq_l.strip("N")
         if targets_offset + self.targets_len > len(depad_seq_both):
