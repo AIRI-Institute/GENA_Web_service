@@ -1,14 +1,15 @@
 import inspect
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict
 
 import numpy as np
-import pandas as pd
 import torch
-from src.gena_lm.utils import get_cls_by_name
 from transformers import AutoConfig, AutoTokenizer
 
-from src import service_folder
+from gena_lm.utils import get_cls_by_name
+
+service_folder = Path(__file__).parent.absolute()
 
 
 @dataclass

@@ -1,4 +1,3 @@
-import os
 import logging
 import time
 from datetime import date, datetime
@@ -8,8 +7,7 @@ import numpy as np
 from flask import Flask, request, jsonify
 from pyfaidx import Faidx
 
-from src import service_folder
-from src.service import SpliceAIConf, SpliceaiService
+from service import SpliceAIConf, SpliceaiService, service_folder
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,7 +45,8 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     total_time = time.time() - st_time
     logger.info(f"create and write faidx file exec time: {total_time:.3f}s")
 
-    return dna_seq, chrome, {'fasta_file': '/generated/gena-spliceai/' + file_name, 'faidx_file': '/generated/gena-spliceai/' + file_name + '.fai'}
+    return dna_seq, chrome, {'fasta_file': '/generated/gena-spliceai/' + file_name,
+                             'faidx_file': '/generated/gena-spliceai/' + file_name + '.fai'}
 
 
 def get_model_prediction(dna_seq: str) -> np.array:

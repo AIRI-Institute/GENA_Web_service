@@ -1,5 +1,6 @@
 import requests
-from src import service_folder
+
+from service import service_folder
 
 
 def main():
