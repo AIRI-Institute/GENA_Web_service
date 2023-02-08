@@ -1,16 +1,22 @@
 from datetime import date, datetime
-from pathlib import Path
 
 from tqdm import tqdm
 
-from server import save_fasta_and_faidx_files, save_annotations_files, instance_class
+from server import save_fasta_and_faidx_files, save_annotations_files, instance_class, service_folder
 
-service_folder = Path(__file__).parent.absolute()
+
+class SomeForm:
+    def __init__(self, input_obj):
+        self.content = {'dna': input_obj}
+
+    def get(self, name: str):
+        return self.content[name]
 
 
 class SomeRequest:
+    # service_request.form.get('dna')
     def __init__(self, input_obj):
-        self.json = {'fasta_seq': input_obj}
+        self.form = SomeForm(input_obj)
 
 
 if __name__ == "__main__":
@@ -25,9 +31,10 @@ if __name__ == "__main__":
     samples_queue, respond_dict = save_fasta_and_faidx_files(request, request_name)
 
     # run model on inputs sequences
+    respond_dict['bed'] = []
     for sample_name, batches in samples_queue.items():
         sample_results = []
-        for batch in tqdm(batches):
+        for batch in tqdm(batches[:3]):
             sample_results.append(instance_class(batch))  # Dicts with list 'seq'
             # and 'prediction' vector of batch size
 

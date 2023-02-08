@@ -246,14 +246,13 @@ class SpliceaiService:
         service_response = dict()
         # write predictions
         predictions = torch.sigmoid(model_out['logits']).detach().numpy()  # [bs, seq, 3]
-        service_response['acceptors'] = np.where(predictions[..., 1] > 0.5, 1, 0)  # [bs, seq]
-        service_response['donors'] = np.where(predictions[..., 2] > 0.5, 1, 0)  # [bs, seq]
+        service_response['acceptors'] = np.where(predictions[..., 1] > 0.5, 1, 0).flatten()  # [bs*seq]
+        service_response['donors'] = np.where(predictions[..., 2] > 0.5, 1, 0).flatten()  # [bs*seq]
 
         # write tokens
-        input_ids = batch['input_ids'].detach().numpy()
-        service_response['seq'] = []
-        for batch_element in input_ids:
-            service_response['seq'].append(self.tokenizer.convert_ids_to_tokens(batch_element,
-                                                                                skip_special_tokens=True))
+        input_ids = batch['input_ids'].detach().numpy().flatten()  # [bs*seq]
+        service_response['seq'] = self.tokenizer.convert_ids_to_tokens(input_ids, skip_special_tokens=True)
+        # for batch_element in input_ids:
+        #     service_response['seq'].append()
 
         return service_response

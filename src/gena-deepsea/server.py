@@ -77,7 +77,7 @@ def save_fasta_and_faidx_files(service_request: request, request_name: str) -> T
 
         # write fasta file
         file_name = f"{request_name}_{sample_name}"
-        respond_fa_file = respond_files_path.joinpath(file_name)
+        respond_fa_file = respond_files_path.joinpath(file_name + '.fa')
         with respond_fa_file.open('w', encoding='utf-8') as fasta_file:
             fasta_file.write(samples_content[sample_name])
 
@@ -93,7 +93,7 @@ def save_fasta_and_faidx_files(service_request: request, request_name: str) -> T
         # write faidx file
         st_time = time.time()
         Faidx(respond_fa_file)
-        respond_dict[f"{sample_name}_faidx_file"] = '/generated/gena-promoters_2000/' + file_name + '.fai'
+        respond_dict[f"{sample_name}_faidx_file"] = '/generated/gena-promoters_2000/' + file_name + '.fa.fai'
         total_time = time.time() - st_time
         logger.info(f"create and write {sample_name} faidx file exec time: {total_time:.3f}s")
 

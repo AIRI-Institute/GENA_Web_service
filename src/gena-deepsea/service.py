@@ -23,7 +23,7 @@ class DeepSeaConf:
     max_tokens = 192
     num_labels = 919
     tokenizer = service_folder.joinpath('data/tokenizers/human/BPE_32k/')
-    model_cls = 'src.gena_lm.modeling_bert:BertForSequenceClassification'
+    model_cls = 'gena_lm.modeling_bert:BertForSequenceClassification'
     model_cfg = service_folder.joinpath('data/configs/L12-H768-A12-V32k-preln.json')
     checkpoint_path = service_folder.joinpath('data/checkpoints/model_best.pth')
 
