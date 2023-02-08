@@ -7,7 +7,6 @@ import numpy as np
 from flask import Flask, request, jsonify
 from pyfaidx import Faidx
 
-# from src.service import service_folder, PromotersConf, PromotersService
 from service import service_folder, PromotersConf, PromotersService
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -70,17 +69,18 @@ def save_fasta_and_faidx_files(service_request: request, request_name: str) -> T
     faidx_time = time.time()
 
     respond_dict = {}
-    samples_queue, samples_content = processing_fasta_file(service_request.json["fasta_seq"])
+    fasta_content = service_request.form.get('dna')
+    samples_queue, samples_content = processing_fasta_file(fasta_content)
     for sample_name, dna_seq in samples_queue.items():
         st_time = time.time()
 
         # write fasta file
-        file_name = f"{request_name}_{sample_name}.fa"
+        file_name = f"{request_name}_{sample_name}"
         respond_fa_file = respond_files_path.joinpath(file_name)
         with respond_fa_file.open('w', encoding='utf-8') as fasta_file:
             fasta_file.write(samples_content[sample_name])
 
-        respond_dict[f"{sample_name}_fasta_file"] = str(respond_fa_file)
+        respond_dict[f"{sample_name}_fasta_file"] = '/generated/gena-promoters_2000/' + file_name + '.fa'
 
         # splice dna sequence to necessary pieces
         samples_queue[sample_name] = slicer(dna_seq, segment=conf.working_segment, step=conf.segment_step)
@@ -92,7 +92,7 @@ def save_fasta_and_faidx_files(service_request: request, request_name: str) -> T
         # write faidx file
         st_time = time.time()
         Faidx(respond_fa_file)
-        respond_dict[f"{sample_name}_faidx_file"] = str(respond_fa_file) + '.fai'
+        respond_dict[f"{sample_name}_faidx_file"] = '/generated/gena-promoters_2000/' + file_name + '.fai'
         total_time = time.time() - st_time
         logger.info(f"create and write {sample_name} faidx file exec time: {total_time:.3f}s")
 
@@ -102,11 +102,11 @@ def save_fasta_and_faidx_files(service_request: request, request_name: str) -> T
     return samples_queue, respond_dict
 
 
-def get_model_prediction(batch: List[str]) -> np.array:
+def get_model_prediction(batch: List[str]) -> Dict:
     st_time = time.time()
     result = instance_class(batch)
     total_time = time.time() - st_time
-    logger.info(f"gena-promoter_2000 model prediction exec time: {total_time:.3f}s")
+    logger.info(f"gena-promoter-2000 model prediction exec time: {total_time:.3f}s")
 
     return result
 
@@ -122,8 +122,10 @@ def save_annotations_files(annotation: List[Dict],
     # create empty bed file
     file_name = f"{request_name}_{seq_name}_promoters.bed"
     respond_file = respond_files_path.joinpath(file_name)
-    respond_dict[f'{seq_name}_bed_file'] = str(respond_file)
     promoters_file = respond_file.open('w', encoding=coding_type)
+
+    # add path to file in respond dict
+    respond_dict['bed'].append('/generated/gena-promoters_2000/' + file_name)
 
     start = 0
     end = 0
@@ -133,7 +135,7 @@ def save_annotations_files(annotation: List[Dict],
                 end += conf.working_segment
             else:
                 if (end != 0) and (start != end):
-                    string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + 'P' + '\n'
+                    string = seq_name + delimiter + str(start) + delimiter + str(end) + '\n'  # delimiter + 'P'
                     promoters_file.write(string)
                     start = end
                 else:
@@ -148,12 +150,13 @@ def save_annotations_files(annotation: List[Dict],
     return respond_dict
 
 
-@app.route("/gena-promoters", methods=["POST"])
+@app.route("/api/gena-promoters_2000/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
         request_name = f"request_{date.today()}_{datetime.now().microsecond}"
         samples_queue, respond_dict = save_fasta_and_faidx_files(request, request_name)
         # run model on inputs sequences
+        respond_dict['bed'] = []
         for sample_name, batches in samples_queue.items():
             sample_results = []
             for batch in batches:
@@ -166,4 +169,4 @@ def respond():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=3000)
+    app.run(debug=True, host="0.0.0.0", port=3000)

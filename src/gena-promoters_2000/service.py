@@ -93,7 +93,7 @@ class PromotersService:
         self.model_forward_args = set(inspect.getfullargspec(self.model.forward).args)
 
     @staticmethod
-    def create_batch(seq_list: List[Dict]):
+    def create_batch(seq_list: List[Dict]) -> Dict:
         batch = {'input_ids': [],
                  'token_type_ids': [],
                  'attention_mask': [],
@@ -112,7 +112,7 @@ class PromotersService:
 
         return batch
 
-    def __call__(self, dna_examples: List[str]):
+    def __call__(self, dna_examples: List[str]) -> Dict:
         # preprocessing
         batch = []
         for dna_seq in dna_examples:
@@ -124,11 +124,12 @@ class PromotersService:
 
         # postprocessing
         service_response = dict()
-        input_ids = batch['input_ids'].detach().numpy()
+        # write predictions
         predictions = torch.argmax(model_out['logits'].detach(), dim=-1).numpy()
-        service_response['prediction'] = predictions
-
+        service_response['prediction'] = predictions  # [bs,]
+        # write tokens
         service_response['seq'] = []
+        input_ids = batch['input_ids'].detach().numpy()
         for batch_element in input_ids:
             service_response['seq'].append(self.tokenizer.convert_ids_to_tokens(batch_element,
                                                                                 skip_special_tokens=True))

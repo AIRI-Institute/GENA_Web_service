@@ -1,7 +1,7 @@
 import inspect
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 
 import numpy as np
 import torch
@@ -14,6 +14,9 @@ service_folder = Path(__file__).parent.absolute()
 
 @dataclass
 class SpliceAIConf:
+    working_segment = 15000
+    segment_step = 5000
+    batch_size = 4
     tokenizer = service_folder.joinpath('data/tokenizers/t2t_1000h_multi_32k/')
     model_cls = 'gena_lm.modeling_bert:BertForTokenClassification'
     model_cfg = service_folder.joinpath('data/configs/L12-H768-A12-V32k-preln.json')
@@ -209,27 +212,48 @@ class SpliceaiService:
         # label counts in test set: [8378616.,    9842.,   10258.]) upweight class 1 and 2
         self.pos_weight = torch.tensor([1.0, 100.0, 100.0])
 
-    def create_batch(self, batch: Dict):
-        # todo: переписать для работы с батчами
-        seq_len = batch['input_ids'].shape[0]
-        bs = 1
-        res_dict = {'input_ids': torch.from_numpy(batch['input_ids'])[None, ...].int(),
-                    'token_type_ids': torch.from_numpy(batch['token_type_ids'])[None, ...].int(),
-                    'attention_mask': torch.from_numpy(batch['attention_mask'])[None, ...].float()}
+    @staticmethod
+    def create_batch(seq_list: List[Dict]) -> Dict:
+        batch = {'input_ids': [],
+                 'token_type_ids': [],
+                 'attention_mask': [],
+                 'labels': None,
+                 "labels_ohe": None,
+                 'labels_mask': None}
 
-        return res_dict
+        for features in seq_list:
+            batch['input_ids'].append(features['input_ids'])
+            batch['token_type_ids'].append(features['token_type_ids'])
+            batch['attention_mask'].append(features['attention_mask'])
 
-    def __call__(self, dna_example: str) -> Dict:
-        batch = self.prepocesser(dna_example)
+        batch['input_ids'] = torch.from_numpy(np.vstack(batch['input_ids'])).int()
+        batch['token_type_ids'] = torch.from_numpy(np.vstack(batch['token_type_ids'])).int()
+        batch['attention_mask'] = torch.from_numpy(np.vstack(batch['attention_mask'])).float()
+
+        return batch
+
+    def __call__(self, dna_examples: List[str]) -> Dict:
+        # preprocessing
+        batch = []
+        for dna_seq in dna_examples:
+            batch.append(self.prepocesser(dna_seq))
+
+        # model inference
         batch = self.create_batch(batch)
         model_out = self.model(**{k: batch[k] for k in batch if k in self.model_forward_args})
 
-        input_ids = batch['input_ids'].detach().numpy().flatten()
-        predictions = torch.sigmoid(model_out['logits']).detach().numpy()
+        # postprocessing
+        service_response = dict()
+        # write predictions
+        predictions = torch.sigmoid(model_out['logits']).detach().numpy()  # [bs, seq, 3]
+        service_response['acceptors'] = np.where(predictions[..., 1] > 0.5, 1, 0)  # [bs, seq]
+        service_response['donors'] = np.where(predictions[..., 2] > 0.5, 1, 0)  # [bs, seq]
 
-        service_responce = dict()
-        service_responce['acceptors'] = np.where(predictions[..., 1] > 0.5, 1, 0)
-        service_responce['donors'] = np.where(predictions[..., 2] > 0.5, 1, 0)
-        service_responce['seq'] = self.tokenizer.convert_ids_to_tokens(input_ids)
+        # write tokens
+        input_ids = batch['input_ids'].detach().numpy()
+        service_response['seq'] = []
+        for batch_element in input_ids:
+            service_response['seq'].append(self.tokenizer.convert_ids_to_tokens(batch_element,
+                                                                                skip_special_tokens=True))
 
-        return service_responce
+        return service_response
