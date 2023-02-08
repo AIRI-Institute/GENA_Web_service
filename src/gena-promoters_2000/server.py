@@ -106,7 +106,7 @@ def get_model_prediction(batch: List[str]) -> np.array:
     st_time = time.time()
     result = instance_class(batch)
     total_time = time.time() - st_time
-    logger.info(f"splice_ai model prediction exec time: {total_time:.3f}s")
+    logger.info(f"gena-promoter_2000 model prediction exec time: {total_time:.3f}s")
 
     return result
 

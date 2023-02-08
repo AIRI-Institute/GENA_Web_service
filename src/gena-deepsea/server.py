@@ -50,7 +50,7 @@ def get_model_prediction(dna_seq: str) -> np.array:
     st_time = time.time()
     result = instance_class(dna_seq)
     total_time = time.time() - st_time
-    logger.info(f"splice_ai model prediction exec time: {total_time:.3f}s")
+    logger.info(f"gena-deepsea model prediction exec time: {total_time:.3f}s")
 
     return result
 
@@ -89,7 +89,7 @@ def save_annotations_files(annotation: Dict,
         file.close()
 
     total_time = time.time() - st_time
-    logger.info(f"write acceptor and donor bed files exec time: {total_time:.3f}s")
+    logger.info(f"write gena-deepsea bed files exec time: {total_time:.3f}s")
 
     return respond_dict
 
