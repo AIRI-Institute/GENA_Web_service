@@ -17,9 +17,9 @@ class PromotersConf:
     bpe_dropout = 0.0
     working_segment = 2000
     segment_step = 1000
-    batch_size = 32
+    batch_size = 8
     tokenizer = service_folder.joinpath('data/tokenizers/t2t_1000h_multi_32k/')
-    model_cls = 'src.gena_lm.modeling_bert:BertForSequenceClassification'
+    model_cls = 'gena_lm.modeling_bert:BertForSequenceClassification'
     model_cfg = service_folder.joinpath('data/configs/L24-H1024-A16-V32k-preln-lastln.json')
     checkpoint_path = service_folder.joinpath('data/checkpoints/model_best.pth')
     base_model = "bert_large_512_lastln_t2t_1000G_bs256_lr_1e-04_fp16-1750k_iters"
@@ -88,7 +88,7 @@ class PromotersService:
 
         # load model checkpoint
         checkpoint = torch.load(config.checkpoint_path, map_location=torch.device('cpu'))
-        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.model.load_state_dict(checkpoint['model_state_dict'], strict=False)
         self.model.eval()
         self.model_forward_args = set(inspect.getfullargspec(self.model.forward).args)
 
@@ -124,7 +124,7 @@ class PromotersService:
 
         # postprocessing
         service_response = dict()
-        input_ids = batch['input_ids'].detach().numpy().flatten()
+        input_ids = batch['input_ids'].detach().numpy()
         predictions = torch.argmax(model_out['logits'].detach(), dim=-1).numpy()
         service_response['prediction'] = predictions
 

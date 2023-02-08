@@ -4,11 +4,11 @@ from datetime import date, datetime
 from typing import Dict, List, Optional, Tuple, Sized
 
 import numpy as np
-import pandas as pd
 from flask import Flask, request, jsonify
 from pyfaidx import Faidx
 
-from src.service import service_folder, PromotersConf, PromotersService
+# from src.service import service_folder, PromotersConf, PromotersService
+from service import service_folder, PromotersConf, PromotersService
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,19 +20,25 @@ respond_files_path = service_folder.joinpath('data/respond_files/')
 respond_files_path.mkdir(exist_ok=True)
 
 
-def processing_fasta_file(content: str) -> Dict[str, str]:
+def processing_fasta_file(content: str) -> Tuple[Dict[str, str], Dict[str, str]]:
     file_queue = {}
+    samples_content = {}
     sample_name = 'error'
     for line in content.split('\n'):
         if line.startswith('>'):
             sample_name = line[1:]
+            sample_name = sample_name.replace(' ', '_')
+            sample_name = sample_name.replace("'", '_')
+
             file_queue[sample_name] = ''
+            samples_content[sample_name] = line + '\n'
         elif len(line) == 0:
             sample_name = 'error'
         else:
             file_queue[sample_name] += line
+            samples_content[sample_name] += line + '\n'
 
-    return file_queue
+    return file_queue, samples_content
 
 
 def slicer(string: Sized, segment: int, step: Optional[int] = None) -> List[str]:
@@ -50,7 +56,7 @@ def slicer(string: Sized, segment: int, step: Optional[int] = None) -> List[str]
     else:
         ind = 0
         while string_len >= segment:
-            elements.append(string[(ind * segment):((ind+1) * segment)])
+            elements.append(string[(ind * segment):((ind + 1) * segment)])
             string_len -= segment
             ind += 1
         # добавляем оставшийся конец строки
@@ -64,16 +70,15 @@ def save_fasta_and_faidx_files(service_request: request, request_name: str) -> T
     faidx_time = time.time()
 
     respond_dict = {}
-    samples_queue = processing_fasta_file(service_request.json["fasta_seq"])
+    samples_queue, samples_content = processing_fasta_file(service_request.json["fasta_seq"])
     for sample_name, dna_seq in samples_queue.items():
         st_time = time.time()
 
         # write fasta file
-        sample_name = sample_name.replace(' ', '_')
         file_name = f"{request_name}_{sample_name}.fa"
         respond_fa_file = respond_files_path.joinpath(file_name)
         with respond_fa_file.open('w', encoding='utf-8') as fasta_file:
-            fasta_file.write(dna_seq)
+            fasta_file.write(samples_content[sample_name])
 
         respond_dict[f"{sample_name}_fasta_file"] = str(respond_fa_file)
 
@@ -122,17 +127,18 @@ def save_annotations_files(annotation: List[Dict],
 
     start = 0
     end = 0
-    for seq_element, prediction in zip(annotation['seq'], annotation['prediction']):
-        if prediction == 1:
-            end += conf.working_segment
-        else:
-            if end != 0:
-                string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + 'P' + '\n'
-                promoters_file.write(string)
-                start = end
-            else:
-                start += conf.working_segment
+    for batch_ans in annotation:
+        for seq_element, prediction in zip(batch_ans['seq'], batch_ans['prediction']):
+            if prediction == 1:
                 end += conf.working_segment
+            else:
+                if (end != 0) and (start != end):
+                    string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + 'P' + '\n'
+                    promoters_file.write(string)
+                    start = end
+                else:
+                    start += conf.working_segment
+                    end += conf.working_segment
 
     promoters_file.close()
 
@@ -152,7 +158,7 @@ def respond():
             sample_results = []
             for batch in batches:
                 sample_results.append(get_model_prediction(batch))  # Dicts with list 'seq'
-                                                                    # and 'prediction' vector of batch size
+                # and 'prediction' vector of batch size
 
             respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name)
 
