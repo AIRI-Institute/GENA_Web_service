@@ -1,6 +1,8 @@
 from datetime import date, datetime
 from pathlib import Path
 
+from tqdm import tqdm
+
 from server import save_fasta_and_faidx_files, save_annotations_files, instance_class
 
 service_folder = Path(__file__).parent.absolute()
@@ -12,12 +14,8 @@ class SomeRequest:
 
 
 if __name__ == "__main__":
-    # define service instance
-    # conf = PromotersConf()
-    # instance_class = PromotersService(conf)
-
     # read test fasta file
-    test_file_path = '/home/mks/airi_work/experiments/test_file/Large_pr_spl.fa'
+    test_file_path = service_folder.joinpath('data/checkpoints/Mid_spl.fa')
     with open(test_file_path, 'r', encoding='utf-8') as fasta:
         fasta_content = fasta.read()
 
@@ -29,12 +27,13 @@ if __name__ == "__main__":
     # run model on inputs sequences
     for sample_name, batches in samples_queue.items():
         sample_results = []
-        for batch in batches[:3]:
+        for batch in tqdm(batches):
             sample_results.append(instance_class(batch))  # Dicts with list 'seq'
             # and 'prediction' vector of batch size
 
         respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name)
 
+    # print output of the service
     for key, val in respond_dict.items():
         print(key, val)
         print()
