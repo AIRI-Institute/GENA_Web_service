@@ -15,7 +15,7 @@ service_folder = Path(__file__).parent.absolute()
 @dataclass
 class SpliceAIConf:
     tokenizer = service_folder.joinpath('data/tokenizers/t2t_1000h_multi_32k/')
-    model_cls = 'src.gena_lm.modeling_bert:BertForTokenClassification'
+    model_cls = 'gena_lm.modeling_bert:BertForTokenClassification'
     model_cfg = service_folder.joinpath('data/configs/L12-H768-A12-V32k-preln.json')
     checkpoint_path = service_folder.joinpath('data/checkpoints/model_best.pth')
 
