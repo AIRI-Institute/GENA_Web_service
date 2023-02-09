@@ -186,7 +186,7 @@ def respond():
                 respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name)
 
             return jsonify(respond_dict)
-        except AssertionError, e:
+        except AssertionError as e:
             return jsonify({'status': 'error', 'message': str(e)}), 400
 
 
