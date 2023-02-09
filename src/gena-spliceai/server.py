@@ -43,6 +43,8 @@ def processing_fasta_file(content: str) -> Tuple[Dict[str, str], Dict[str, str]]
 def slicer(string: Sized, segment: int, step: Optional[int] = None) -> List[str]:
     elements = list()
     string_len = len(string)
+    if string_len < segment:
+        string += 'N' * (segment - string_len)
 
     if step is not None:
         ind = 0

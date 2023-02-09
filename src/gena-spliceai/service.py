@@ -14,8 +14,8 @@ service_folder = Path(__file__).parent.absolute()
 
 @dataclass
 class SpliceAIConf:
-    working_segment = 15000
-    segment_step = 5000
+    working_segment = 5000
+    segment_step = None
     batch_size = 4
     tokenizer = service_folder.joinpath('data/tokenizers/t2t_1000h_multi_32k/')
     model_cls = 'gena_lm.modeling_bert:BertForTokenClassification'

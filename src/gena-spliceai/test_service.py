@@ -27,6 +27,7 @@ if __name__ == "__main__":
         fasta_content = fasta.read()
 
     # fasta file processing
+    # request = SomeRequest(input_obj='>chr1\nCTCGTTCCGCGCCCGCCATGGAACCGGATGTACGTTATAGCTATTACGCTACTGTGGGTGCACTCGTTCCGCGCCCGCCATGGAACCGGATGGTCTAGCCGATCTGACGCTCGTTCCGCGCCCGCCATGGAACCGGATGCCCCGCCCCTGGTTTCGAGTCGCTGGCCTGCTGGGTGTCATCGCATTATCGATATTGCATTACGTTATAGCTATTACCTCGTTCCGCGCCCGCCATGGAACCGGATGGCTACTGTGGGTGCAGTCTAGC')
     request = SomeRequest(input_obj=fasta_content)
     request_name = f"request_{date.today()}_{datetime.now().microsecond}"
     samples_queue, respond_dict = save_fasta_and_faidx_files(request, request_name)
