@@ -82,7 +82,10 @@ def save_fasta_and_faidx_files(service_request: request, request_name: str) -> T
         with respond_fa_file.open('w', encoding='utf-8') as fasta_file:
             fasta_file.write(samples_content[sample_name])
 
-        respond_dict[f"{sample_name}_fasta_file"] = '/generated/gena-spliceai/' + file_name + '.fa'
+        # todo: убрать заглушку на обработку только одной последовательности в fasta файле, после того договоримся
+        #  с фронтом как обрабатывать такие случаи
+        # respond_dict[f"{sample_name}_fasta_file"] = '/generated/gena-promoters_2000/' + file_name + '.fa'
+        respond_dict[f"fasta_file"] = '/generated/gena-promoters_2000/' + file_name + '.fa'
 
         # splice dna sequence to necessary pieces
         samples_queue[sample_name] = slicer(dna_seq, segment=conf.working_segment, step=conf.segment_step)
@@ -94,7 +97,11 @@ def save_fasta_and_faidx_files(service_request: request, request_name: str) -> T
         # write faidx file
         st_time = time.time()
         Faidx(respond_fa_file)
-        respond_dict[f"{sample_name}_faidx_file"] = '/generated/gena-spliceai/' + file_name + '.fa.fai'
+        # todo: убрать заглушку на обработку только одной последовательности в fasta файле, после того договоримся
+        #  с фронтом как обрабатывать такие случаи
+        # respond_dict[f"{sample_name}_faidx_file"] = '/generated/gena-spliceai/' + file_name + '.fa.fai'
+        respond_dict[f"fai_file"] = '/generated/gena-spliceai/' + file_name + '.fa.fai'
+
         total_time = time.time() - st_time
         logger.info(f"create and write {sample_name} faidx file exec time: {total_time:.3f}s")
 
@@ -168,7 +175,9 @@ def respond():
         samples_queue, respond_dict = save_fasta_and_faidx_files(request, request_name)
         # run model on inputs sequences
         respond_dict['bed'] = []
-        for sample_name, batches in samples_queue.items():
+        # todo: убрать заглушку на обработку только одной последовательности в fasta файле, после того договоримся
+        #  с фронтом как обрабатывать такие случаи
+        for sample_name, batches in list(samples_queue.items())[:1]:
             sample_results = []
             for batch in batches:
                 sample_results.append(get_model_prediction(batch))  # Dicts with list 'seq'
