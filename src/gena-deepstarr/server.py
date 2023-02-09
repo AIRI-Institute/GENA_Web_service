@@ -23,7 +23,7 @@ def processing_fasta_file(content: str) -> Tuple[Dict[str, str], Dict[str, str]]
     file_queue = {}
     samples_content = {}
     sample_name = 'error'
-    for line in content.split('\n'):
+    for line in content.splitlines():
         if line.startswith('>'):
             sample_name = line[1:]
             sample_name = sample_name.replace(' ', '_')
@@ -72,7 +72,14 @@ def save_fasta_and_faidx_files(service_request: request, request_name: str) -> T
     faidx_time = time.time()
 
     respond_dict = {}
-    fasta_content = service_request.form.get('dna')
+    if 'file' in request.files:
+        file = request.files['file']
+        fasta_content = file.read().decode('UTF-8')
+    else:
+        fasta_content = service_request.form.get('dna')
+
+    assert fasta_content, 'Field DNA sequence or file are required.'
+
     samples_queue, samples_content = processing_fasta_file(fasta_content)
     for sample_name, dna_seq in samples_queue.items():
         st_time = time.time()
@@ -170,21 +177,24 @@ def save_annotations_files(annotation: List[Dict],
 @app.route("/api/gena-deepstarr/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
-        request_name = f"request_{date.today()}_{datetime.now().microsecond}"
-        samples_queue, respond_dict = save_fasta_and_faidx_files(request, request_name)
-        # run model on inputs sequences
-        respond_dict['bed'] = []
-        # todo: убрать заглушку на обработку только одной последовательности в fasta файле, после того договоримся
-        #  с фронтом как обрабатывать такие случаи
-        for sample_name, batches in list(samples_queue.items())[:1]:
-            sample_results = []
-            for batch in batches:
-                sample_results.append(get_model_prediction(batch))  # Dicts with list 'seq'
-                # and 'prediction' vector of batch size
+        try:
+            request_name = f"request_{date.today()}_{datetime.now().microsecond}"
+            samples_queue, respond_dict = save_fasta_and_faidx_files(request, request_name)
+            # run model on inputs sequences
+            respond_dict['bed'] = []
+            # todo: убрать заглушку на обработку только одной последовательности в fasta файле, после того договоримся
+            #  с фронтом как обрабатывать такие случаи
+            for sample_name, batches in list(samples_queue.items())[:1]:
+                sample_results = []
+                for batch in batches:
+                    sample_results.append(get_model_prediction(batch))  # Dicts with list 'seq'
+                    # and 'prediction' vector of batch size
 
-            respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name)
+                respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name)
 
-        return jsonify(respond_dict)
+            return jsonify(respond_dict)
+        except AssertionError, e:
+            return jsonify({'status': 'error', 'message': str(e)}), 400
 
 
 if __name__ == "__main__":
