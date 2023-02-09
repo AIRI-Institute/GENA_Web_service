@@ -101,7 +101,7 @@ def save_fasta_and_faidx_files(service_request: request, request_name: str) -> T
         # todo: убрать заглушку на обработку только одной последовательности в fasta файле, после того договоримся
         #  с фронтом как обрабатывать такие случаи
         # respond_dict[f"{sample_name}_faidx_file"] = '/generated/gena-spliceai/' + file_name + '.fa.fai'
-        respond_dict[f"fai_file"] = '/generated/gena-spliceai/' + file_name + '.fa.fai'
+        respond_dict[f"fai_file"] = '/generated/gena-promoters_2000/' + file_name + '.fa.fai'
 
         total_time = time.time() - st_time
         logger.info(f"create and write {sample_name} faidx file exec time: {total_time:.3f}s")
