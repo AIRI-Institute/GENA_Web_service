@@ -71,7 +71,15 @@ def save_fasta_and_faidx_files(service_request: request, request_name: str) -> T
     faidx_time = time.time()
 
     respond_dict = {}
-    fasta_content = service_request.form.get('dna')
+    if 'file' in request.files:
+        file = request.files['file']
+        fasta_content = file.read().decode('UTF-8')
+    else:
+        fasta_content = service_request.form.get('dna')
+
+    if not fasta_content:
+        return jsonify({status: 'error', message: 'Field DNA sequence or file are required.'})
+
     samples_queue, samples_content = processing_fasta_file(fasta_content)
     for sample_name, dna_seq in samples_queue.items():
         st_time = time.time()
