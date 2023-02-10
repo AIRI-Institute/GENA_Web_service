@@ -52,7 +52,7 @@ def slicer(string: Sized, segment: int, step: Optional[int] = None) -> List[str]
             string_len -= step
             ind += 1
         # добавляем оставшийся конец строки
-        elements.append(string[:-string_len])
+        elements.append(string[(ind * step):])
     else:
         ind = 0
         while string_len >= segment:
@@ -61,7 +61,7 @@ def slicer(string: Sized, segment: int, step: Optional[int] = None) -> List[str]
             ind += 1
         # добавляем оставшийся конец строки
         if string_len > 0:
-            elements.append(string[:-string_len])
+            elements.append(string[(ind * segment):])
 
     return elements
 
