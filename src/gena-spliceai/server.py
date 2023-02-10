@@ -67,18 +67,10 @@ def slicer(string: Sized, segment: int, step: Optional[int] = None) -> List[str]
     return elements
 
 
-def save_fasta_and_faidx_files(service_request: request, request_name: str) -> Tuple[Dict, Dict]:
+def save_fasta_and_faidx_files(fasta_content: str, request_name: str) -> Tuple[Dict, Dict]:
     faidx_time = time.time()
 
     respond_dict = {}
-    if 'file' in request.files:
-        file = request.files['file']
-        fasta_content = file.read().decode('UTF-8')
-    else:
-        fasta_content = service_request.form.get('dna')
-
-    assert fasta_content, 'Field DNA sequence or file are required.'
-
     samples_queue, samples_content = processing_fasta_file(fasta_content)
     for sample_name, dna_seq in samples_queue.items():
         st_time = time.time()
@@ -179,8 +171,21 @@ def save_annotations_files(annotation: List[Dict],
 def respond():
     if request.method == 'POST':
         try:
+            # create request unique name
             request_name = f"request_{date.today()}_{datetime.now().microsecond}"
-            samples_queue, respond_dict = save_fasta_and_faidx_files(request, request_name)
+
+            # read data from request
+            if 'file' in request.files:
+                file = request.files['file']
+                fasta_content = file.read().decode('UTF-8')
+            else:
+                fasta_content = request.form.get('dna')
+
+            assert fasta_content, 'Field DNA sequence or file are required.'
+
+            # get queue of dna samples from fasta file
+            samples_queue, respond_dict = save_fasta_and_faidx_files(fasta_content, request_name)
+
             # run model on inputs sequences
             respond_dict['bed'] = []
             # todo: убрать заглушку на обработку только одной последовательности в fasta файле, после того договоримся
