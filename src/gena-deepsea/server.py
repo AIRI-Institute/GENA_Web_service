@@ -136,10 +136,11 @@ def save_annotations_files(annotation: List[Dict],
         # get labels indices for the file type group
         indexes = list(annotation_table[annotation_table['FileName'] == file_type].index)
         # write info in bed file
+        n = 0
         for batch_ans in annotation:
             file_labels = batch_ans['prediction'][:, indexes]
 
-            for n, batch_element in enumerate(file_labels):
+            for batch_element in file_labels:
                 for label, feature_index in zip(batch_element, indexes):
                     start = conf.target_len * n
                     end = conf.target_len * (n + 1)
@@ -147,6 +148,7 @@ def save_annotations_files(annotation: List[Dict],
                         feature_name = annotation_table['RecordName'][feature_index]
                         string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + feature_name
                         file.write(string + '\n')
+                n += 1
 
         file.close()
 
