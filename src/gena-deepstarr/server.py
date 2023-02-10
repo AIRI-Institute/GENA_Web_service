@@ -119,7 +119,7 @@ def save_annotations_files(annotation: List[Dict],
                            delimiter: str = '\t') -> Dict:
     st_time = time.time()
 
-    # # open fasta files for DEV
+    # open fasta files for DEV
     dev_file_name = f"{request_name}_{seq_name}_dev.bed"
     respond_file = respond_files_path.joinpath(dev_file_name)
     dev_file = respond_file.open('w', encoding=coding_type)
@@ -133,6 +133,7 @@ def save_annotations_files(annotation: List[Dict],
     respond_dict['bed'].append('/generated/gena-deepstarr/' + dev_file_name)
     respond_dict['bed'].append('/generated/gena-deepstarr/' + hk_file_name)
 
+    # chr start end (записи только для позитивного класса)
     start = 0
     end = 0
     for batch_ans in annotation:

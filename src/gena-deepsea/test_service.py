@@ -19,7 +19,8 @@ if __name__ == "__main__":
     respond_dict['bed'] = []
     for sample_name, batches in samples_queue.items():
         sample_results = []
-        for batch in tqdm(batches[:3]):
+        for batch in tqdm(batches
+                          ):
             sample_results.append(instance_class(batch))  # Dicts with list 'seq'
             # and 'prediction' vector of batch size
 
