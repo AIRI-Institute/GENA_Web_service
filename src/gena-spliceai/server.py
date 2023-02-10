@@ -3,7 +3,6 @@ import time
 from datetime import date, datetime
 from typing import Dict, Tuple, Optional, Sized, List
 
-import numpy as np
 from flask import Flask, request, jsonify
 from pyfaidx import Faidx
 
@@ -110,15 +109,6 @@ def save_fasta_and_faidx_files(fasta_content: str, request_name: str) -> Tuple[D
     return samples_queue, respond_dict
 
 
-def get_model_prediction(dna_seq: str) -> np.array:
-    st_time = time.time()
-    result = instance_class(dna_seq)
-    total_time = time.time() - st_time
-    logger.info(f"gena-spliceai model prediction exec time: {total_time:.3f}s")
-
-    return result
-
-
 def save_annotations_files(annotation: List[Dict],
                            seq_name: str,
                            respond_dict: Dict,
@@ -193,7 +183,7 @@ def respond():
             for sample_name, batches in list(samples_queue.items())[:1]:
                 sample_results = []
                 for batch in batches:
-                    sample_results.append(get_model_prediction(batch))  # Dicts with list 'seq'
+                    sample_results.append(instance_class(batch))  # Dicts with list 'seq'
                     # and 'prediction' vector of batch size
 
                 respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name)
