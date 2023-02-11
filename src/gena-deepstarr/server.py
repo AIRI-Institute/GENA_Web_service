@@ -116,13 +116,13 @@ def save_annotations_files(annotation: List[Dict],
     st_time = time.time()
 
     # open fasta files for DEV
-    dev_file_name = f"{request_name}_{seq_name}_dev.bed"
+    dev_file_name = f"{request_name}_{seq_name}_dev.bedgraph"
     respond_file = respond_files_path.joinpath(dev_file_name)
     dev_file = respond_file.open('w', encoding=coding_type)
     dev_file.write(f'track name=Dev description="GENA DeepSTARR"\n')
 
     # open fasta files for HK
-    hk_file_name = f"{request_name}_{seq_name}_hk.bed"
+    hk_file_name = f"{request_name}_{seq_name}_hk.bedgraph"
     respond_file = respond_files_path.joinpath(hk_file_name)
     hk_file = respond_file.open('w', encoding=coding_type)
     hk_file.write(f'track name=Hk description="GENA DeepSTARR"\n')
