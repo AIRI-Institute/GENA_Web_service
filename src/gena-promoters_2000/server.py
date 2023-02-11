@@ -122,6 +122,7 @@ def save_annotations_files(annotation: List[Dict],
     file_name = f"{request_name}_{seq_name}_promoters.bed"
     respond_file = respond_files_path.joinpath(file_name)
     promoters_file = respond_file.open('w', encoding=coding_type)
+    promoters_file.write(f'track name=promoters description="GENA Promoters"\n')
 
     # add path to file in respond dict
     respond_dict['bed'].append('/generated/gena-promoters-2000/' + file_name)

@@ -129,6 +129,7 @@ def save_annotations_files(annotation: List[Dict],
         file_name = f"{request_name}_{seq_name}_{file_type}.bed"
         respond_file = respond_files_path.joinpath(file_name)
         file = respond_file.open('w', encoding=coding_type)
+        file.write(f'track name={file_type} description="GENA chromatin annotation"\n')
 
         # add path to file in respond dict
         respond_dict['bed'].append('/generated/gena-deepsea/' + file_name)
