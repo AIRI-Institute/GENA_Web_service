@@ -118,13 +118,13 @@ def save_annotations_files(annotation: List[Dict],
     acceptor_file_name = f"{request_name}_{seq_name}_acceptors.bed"
     respond_acc_file = respond_files_path.joinpath(acceptor_file_name)
     acc_file = respond_acc_file.open('w', encoding=coding_type)
-    acc_file.write(f'track name=splice acceptor description="GENA SpliceAI"\n')
+    acc_file.write(f'track name=SA description="GENA SpliceAI"\n')
 
     # open fasta files for donors
     donor_file_name = f"{request_name}_{seq_name}_donors.bed"
     respond_donor_file = respond_files_path.joinpath(donor_file_name)
     donor_file = respond_donor_file.open('w', encoding=coding_type)
-    donor_file.write(f'track name=splice donor description="GENA SpliceAI"\n')
+    donor_file.write(f'track name=SD description="GENA SpliceAI"\n')
 
     # add paths to files in respond dict
     respond_dict['bed'].append('/generated/gena-spliceai/' + acceptor_file_name)
