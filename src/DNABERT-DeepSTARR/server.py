@@ -21,7 +21,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     os.mkdir(req_path)
 
     fasta_seq = service_request.form.get('dna')
-    lines = fasta_seq.split('\n')
+    lines = fasta_seq.splitlines()
 
     dna_seq_names = []
     dna_seqs = []
