@@ -34,64 +34,30 @@ class SpliceAIPreprocess:
         self.default_target_value = np.load(str(def_val))
 
     def tokenize_inputs(self, seq):
-        depad_seq_l = seq.lstrip("N")
-        if self.targets_offset - (len(seq) - len(depad_seq_l)) < 0:
-            depad_seq_l = seq[self.targets_offset:]
-        targets_offset = self.targets_offset - (len(seq) - len(depad_seq_l))
+        depad_seq_l = seq.strip("N")
 
-        assert targets_offset >= 0
-        if targets_offset + self.targets_len <= len(depad_seq_l):
-            print(f"ATTENTION! The length of the incoming sequence is less than 10,000 nucleotides; the model's "
+        if len(depad_seq_l) > self.targets_offset:
+            depad_seq_l = seq[:self.targets_offset]
+
+        if len(depad_seq_l) < self.targets_len:
+            print(f"ATTENTION! The length of the incoming sequence is less than 5,000 nucleotides; the model's "
                   f"response under given conditions may not be entirely correct.")
 
-        depad_seq_both = depad_seq_l.strip("N")
-        if targets_offset + self.targets_len > len(depad_seq_both):
-            seq = depad_seq_l[:targets_offset + self.targets_len]
-        else:
-            seq = depad_seq_both
-
-        left, mid, right = (
-            seq[:targets_offset],
-            seq[targets_offset: targets_offset + self.targets_len],
-            seq[targets_offset + self.targets_len:],
-        )
-
-        mid_encoding = self.tokenizer(mid,
+        mid_encoding = self.tokenizer(depad_seq_l,
                                       add_special_tokens=False,
                                       padding=False,
                                       return_offsets_mapping=True,
                                       return_tensors="np")
 
-        context_encoding = self.tokenizer(left + "X" + right,
-                                          add_special_tokens=False,
-                                          padding=False,
-                                          return_offsets_mapping=True,
-                                          return_tensors="np")
-
-        for encoding in [mid_encoding, context_encoding]:
-            assert np.all(encoding["attention_mask"][0] == 1)
-            assert np.all(encoding["token_type_ids"][0] == 0)
+        assert np.all(mid_encoding["attention_mask"][0] == 1)
+        assert np.all(mid_encoding["token_type_ids"][0] == 0)
 
         token_type_ids = np.zeros(shape=self.max_seq_len, dtype=np.int64)
-
-        boundary_pos = int(
-            np.where(
-                context_encoding["offset_mapping"][0] == [len(left), len(left) + 1]
-            )[0][0]
-        )
-        boundary_token = context_encoding["input_ids"][0][boundary_pos].tolist()
-        assert (
-                self.tokenizer.convert_ids_to_tokens(boundary_token) == "[UNK]"
-        ), "Error during context tokens processing"
-
         n_service_tokens = 4  # CLS-left-SEP-mid-SEP-right-SEP (PAD)
-
         L_mid = len(mid_encoding["input_ids"][0])
-        L_left = boundary_pos
-        L_right = len(context_encoding["token_type_ids"][0]) - L_left - 1
 
         # case I. target's encoding >= max_seq_len; don't add context & trim target if needed
-        if L_mid + n_service_tokens >= self.max_seq_len:
+        if L_mid + n_service_tokens > self.max_seq_len:
             # st = (L_mid // 2) - (self.max_seq_len - n_service_tokens) // 2
             # en = st + (self.max_seq_len - n_service_tokens)
             st = 0
@@ -109,57 +75,29 @@ class SpliceAIPreprocess:
             )
 
         # case II. target+context encoding < max_seq_len, we need to pad
-        elif L_mid + L_left + L_right + n_service_tokens <= self.max_seq_len:
-            n_pads = self.max_seq_len - (L_mid + L_left + L_right + n_service_tokens)
+        elif L_mid + n_service_tokens < self.max_seq_len:
+            n_pads = self.max_seq_len - (L_mid + n_service_tokens)
             input_ids = np.concatenate(
                 [
-                    [self.tokenizer.convert_tokens_to_ids("[CLS]")],
-                    context_encoding["input_ids"][0][:boundary_pos],
-                    [self.tokenizer.convert_tokens_to_ids("[SEP]")],
+                    [
+                        self.tokenizer.convert_tokens_to_ids("[CLS]"),
+                        self.tokenizer.convert_tokens_to_ids("[SEP]"),
+                    ],
                     mid_encoding["input_ids"][0],
-                    [self.tokenizer.convert_tokens_to_ids("[SEP]")],
-                    context_encoding["input_ids"][0][boundary_pos + 1:],
                     [self.tokenizer.convert_tokens_to_ids("[PAD]")] * n_pads,
                     [self.tokenizer.convert_tokens_to_ids("[SEP]")],
+                    [self.tokenizer.convert_tokens_to_ids("[SEP]")]
                 ]
             )
 
-        # case III. target+context encoding > max_seq_len, we need to trim
-        elif L_mid + L_left + L_right + n_service_tokens > self.max_seq_len:
-            # compute trimming. The aims are to
-            # a) make the total length == self.max_seq_len
-            # b) make the left and right context size as close to each other as possible
-            oversize = L_mid + L_left + L_right + n_service_tokens - self.max_seq_len
-            if L_left >= L_right:
-                trim_left = oversize / 2.0 + min(
-                    (L_left - L_right) / 2.0, oversize / 2.0
-                )
-                trim_right = max(0, (oversize - (L_left - L_right)) / 2.0)
-            else:
-                trim_right = oversize / 2.0 + min(
-                    (L_right - L_left) / 2.0, oversize / 2.0
-                )
-                trim_left = max(0, (oversize - (L_right - L_left)) / 2.0)
-            assert (int(trim_right) == trim_right) == (int(trim_left) == trim_left)
-            if int(trim_right) != trim_right:
-                trim_left += 0.5
-                trim_right -= 0.5
-            assert (int(trim_right) - trim_right) == (int(trim_left) - trim_left) == 0
-            assert oversize == trim_left + trim_right
-
-            trim_left = int(trim_left)
-            trim_right = int(trim_right)
-
+        # case III. target == max_seq_len
+        elif L_mid + n_service_tokens == self.max_seq_len:
             input_ids = np.concatenate(
                 [
                     [self.tokenizer.convert_tokens_to_ids("[CLS]")],
-                    context_encoding["input_ids"][0][trim_left:boundary_pos],
                     [self.tokenizer.convert_tokens_to_ids("[SEP]")],
                     mid_encoding["input_ids"][0],
                     [self.tokenizer.convert_tokens_to_ids("[SEP]")],
-                    context_encoding["input_ids"][0][
-                    boundary_pos + 1: L_left + L_right + 1 - trim_right
-                    ],
                     [self.tokenizer.convert_tokens_to_ids("[SEP]")],
                 ]
             )
