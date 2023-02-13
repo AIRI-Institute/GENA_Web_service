@@ -33,7 +33,7 @@ class SpliceAIPreprocess:
         def_val = service_folder.joinpath('data/checkpoints/def_target_val.npy')
         self.default_target_value = np.load(str(def_val))
 
-    def tokenize_inputs(self, seq, target):
+    def tokenize_inputs(self, seq):
         depad_seq_l = seq.lstrip("N")
         if self.targets_offset - (len(seq) - len(depad_seq_l)) < 0:
             depad_seq_l = seq[self.targets_offset:]
@@ -56,20 +56,17 @@ class SpliceAIPreprocess:
             seq[targets_offset + self.targets_len:],
         )
 
-        mid_encoding = self.tokenizer(
-            mid,
-            add_special_tokens=False,
-            padding=False,
-            return_offsets_mapping=True,
-            return_tensors="np",
-        )
-        context_encoding = self.tokenizer(
-            left + "X" + right,
-            add_special_tokens=False,
-            padding=False,
-            return_offsets_mapping=True,
-            return_tensors="np",
-        )
+        mid_encoding = self.tokenizer(mid,
+                                      add_special_tokens=False,
+                                      padding=False,
+                                      return_offsets_mapping=True,
+                                      return_tensors="np")
+
+        context_encoding = self.tokenizer(left + "X" + right,
+                                          add_special_tokens=False,
+                                          padding=False,
+                                          return_offsets_mapping=True,
+                                          return_tensors="np")
 
         for encoding in [mid_encoding, context_encoding]:
             assert np.all(encoding["attention_mask"][0] == 1)
@@ -172,15 +169,14 @@ class SpliceAIPreprocess:
 
         assert len(input_ids) == self.max_seq_len
 
-        attention_mask = np.array(input_ids != self.tokenizer.pad_token_id,
-                                  dtype=np.int64
-                                  )
+        attention_mask = np.array(input_ids != self.tokenizer.pad_token_id, dtype=np.int64)
+
         return {"input_ids": input_ids,
                 "token_type_ids": token_type_ids,
                 "attention_mask": attention_mask}
 
     def __call__(self, seq: str):
-        return self.tokenize_inputs(seq, self.default_target_value)
+        return self.tokenize_inputs(seq)
 
 
 class SpliceaiService:
@@ -251,7 +247,7 @@ class SpliceaiService:
 
         # write tokens
         input_ids = batch['input_ids'].detach().numpy().flatten()  # [bs*seq]
-        service_response['seq'] = self.tokenizer.convert_ids_to_tokens(input_ids, skip_special_tokens=True)
+        service_response['seq'] = self.tokenizer.convert_ids_to_tokens(input_ids, skip_special_tokens=False)
         # for batch_element in input_ids:
         #     service_response['seq'].append()
 
