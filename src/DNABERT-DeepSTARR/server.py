@@ -51,7 +51,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
                 kmer += "\t0\t0\n"
                 i += 248
                 input_file.write(kmer)
-                counter_for_dna_seq_names[j] += 1
+                counter_for_dna_seq_names[k] += 1
 
     file_path = req_path + "/dna.fa"
     with open(file_path, 'w', encoding='utf-8') as f:
