@@ -40,8 +40,8 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     with open(file_path, 'w', encoding='utf-8') as input_file:
         input_file.write("seq\tDev_log2_enrichment\tHk_log2_enrichment\n")
         counter_for_dna_seq_names = [0 for i in range(len(dna_seq_names))]
-        for j in range(len(dna_seq_names)):
-            dna_seq = dna_seqs[j]
+        for k in range(len(dna_seq_names)):
+            dna_seq = dna_seqs[k]
             i = 0
             while (i < len(dna_seq)):
                 piece = dna_seq[i:i+248]
@@ -71,7 +71,7 @@ def get_model_prediction(req_path: str):
 def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -> Dict:
 
     global_counter = 0
-    list_of_bed_files - []
+    list_of_bed_files = []
 
     for j, seq_name in enumerate(dna_seq_names):
     
