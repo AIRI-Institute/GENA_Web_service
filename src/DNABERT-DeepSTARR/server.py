@@ -84,8 +84,8 @@ def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -
         with open(req_path + f'/result_dev_{seq_name}.bedgraph', 'w', encoding='utf-8') as fd:
             with open(req_path + f'/result_hk_{seq_name}.bedgraph', 'w', encoding='utf-8') as fh:
                 preds = np.load(req_path + '/pred_results.npy')
-                fd.write("track name=\"Dev_log2_enrichment\"\n")
-                fh.write("track name=\"Hk_log2_enrichment\"\n")
+                fd.write("track name=\"Dev_log2_enrichment" + f"_{seq_name}" + "\"\n")
+                fh.write("track name=\"Hk_log2_enrichment" + f"_{seq_name}" + "\"\n")
                 for i in range(counter_for_dna_seq_names[j]):
                     fd.write(f"{seq_name}\t{str(i*248)}\t{str((i+1)*248)}\t{str(preds[global_counter, 0])}\n")
                     fh.write(f"{seq_name}\t{str(i*248)}\t{str((i+1)*248)}\t{str(preds[global_counter, 1])}\n")
