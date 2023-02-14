@@ -100,7 +100,7 @@ def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -
                         end = 1024 * (n + 1) # to-do: add proper length if input sequence length less than 1024 bp
                         if label == 1:
                             feature_name = annotation_table['RecordName'][feature_index]
-                            f.write(f"{chrome}\t{str(start)}\t{str(end)}\t{feature_name}\n")
+                            f.write(f"{seq_name}\t{str(start)}\t{str(end)}\t{feature_name}\n")
 
         global_counter += counter_for_dna_seq_names[j]
 
