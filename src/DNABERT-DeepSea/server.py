@@ -90,7 +90,7 @@ def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -
             list_of_bed_files.append(f"/generated/dnabert-deepsea{req_path}/result_{seq_name}_{file_type}.bed")
             with open(req_path + f'/result_{seq_name}_{file_type}.bed', 'w', encoding='utf-8') as f:
 
-                f.write(f"track name=\"{file_type}\"\n")
+                f.write(f"track name=\"{file_type}" + f"_{seq_name}" + "\"\n")
 
                 indexes = list(annotation_table[annotation_table['FileName'] == file_type].index)
                 file_labels = preds[global_counter:global_counter + counter_for_dna_seq_names[j], indexes]
