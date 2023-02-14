@@ -101,11 +101,15 @@ def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -
 @app.route("/api/dnabert-promoters-2000/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
-        dna_seq_names, req_path, counter_for_dna_seq_names = save_fasta_and_faidx_files(request)
-        get_model_prediction(req_path)
-        bed_dict = save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names)
 
-        return jsonify(bed_dict)
+        try:
+            dna_seq_names, req_path, counter_for_dna_seq_names = save_fasta_and_faidx_files(request)
+            get_model_prediction(req_path)
+            bed_dict = save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names)
+            return jsonify(bed_dict)
+        
+        except AssertionError as e:
+            return jsonify({'status':'error', 'message':str(e)}), 400
 
 
 if __name__ == "__main__":
