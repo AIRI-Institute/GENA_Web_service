@@ -62,7 +62,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     file_path = req_path + "/dna.fa"
     with open(file_path, 'w', encoding='utf-8') as f:
         for i in range(len(dna_seq_names)):
-            f.write(dna_seq_names[i] + '\n')
+            f.write('>' + dna_seq_names[i] + '\n')
             f.write(dna_seqs[i] + '\n')
 
     Faidx(file_path)
