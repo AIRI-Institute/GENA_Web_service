@@ -20,13 +20,19 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     req_path = f"/DNABERT_storage/request_{date.today()}_{datetime.now().microsecond}"
     os.mkdir(req_path)
 
-    fasta_seq = service_request.form.get('dna')
-    lines = fasta_seq.splitlines()
+    # read data from request
+    if 'file' in request.files:
+        file = request.files['file']
+        fasta_seq = file.read().decode('UTF-8')
+    else:
+        fasta_seq = request.form.get('dna')
+
+    assert fasta_seq, 'Field DNA sequence or file are required.'
 
     dna_seq_names = []
     dna_seqs = []
     flag = False
-    for line in lines:
+    for line in fasta_seq.splitlines():
         if line[0] == '>':
             dna_seq_names.append(line.split(' ')[0])
             flag = True
