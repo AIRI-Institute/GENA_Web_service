@@ -83,9 +83,9 @@ def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -
     
         with open(req_path + f'/result_{seq_name}.bed', 'w', encoding='utf-8') as f:
             preds = np.load(req_path + '/pred_results.npy')
-            f.write("track name=\"Promoters\" visibility=2 itemRgb=\"On\"\n")
+            f.write("track name=\"Promoters\" visibility=2 itemRgb=On\n")
             for i in range(counter_for_dna_seq_names[j]):
-                f.write(f"{seq_name}\t{str(i*2048)}\t{str((i+1)*2048)}\t{str(preds[global_counter])}\t{'255,51,51' if preds[global_counter] < 0.5 else '153,255,51'}\n")
+                f.write(f"{seq_name}\t{str(i*2048)}\t{str((i+1)*2048)}\t{str(preds[global_counter])}\t{'\"255,51,51\"' if preds[global_counter] < 0.5 else '\"153,255,51\"'}\n")
                 global_counter += 1
 
         list_of_bed_files.append(f"/generated/dnabert-promoters-2000{req_path}/result_{seq_name}.bed")
