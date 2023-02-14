@@ -44,7 +44,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
                 flag = False
             dna_seqs[-1] += line
 
-    file_path = req_path + "/dev.tsv"
+    file_path = req_path + "/dev.csv"
     with open(file_path, 'w', encoding='utf-8') as input_file:
         input_file.write("seq\ttarget\n")
         counter_for_dna_seq_names = [0 for i in range(len(dna_seq_names))]
