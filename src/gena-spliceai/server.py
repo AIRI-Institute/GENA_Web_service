@@ -135,7 +135,7 @@ def save_annotations_files(annotation: List[Dict],
     end = 0
     for batch_ans in annotation:
         for token, acceptor, donor in zip(batch_ans['seq'], batch_ans['acceptors'], batch_ans['donors']):
-            if token not in ['[CLS]', '[SEP]', '[UNK]']:
+            if token not in ['[CLS]', '[SEP]', '[UNK]', '[PAD]']:
                 end += len(token)
                 if acceptor == 1:
                     string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + token + '\n'
