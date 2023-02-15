@@ -25,6 +25,9 @@ def processing_fasta_file(content: str) -> Tuple[Dict[str, str], Dict[str, str]]
     for line in content.splitlines():
         if line.startswith('>'):
             sample_name = line[1:].split()[0]
+            if ':' in sample_name:
+                sample_name = sample_name.split(':')[0]
+
             file_queue[sample_name] = ''
             samples_content[sample_name] = line + '\n'
         elif len(line) == 0:
