@@ -20,15 +20,21 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     req_path = f"/DNABERT_storage/request_{date.today()}_{datetime.now().microsecond}"
     os.mkdir(req_path)
 
-    fasta_seq = service_request.form.get('dna')
-    lines = fasta_seq.splitlines()
+    # read data from request
+    if 'file' in request.files:
+        file = request.files['file']
+        fasta_seq = file.read().decode('UTF-8')
+    else:
+        fasta_seq = request.form.get('dna')
+
+    assert fasta_seq, 'Field DNA sequence or file are required.'
 
     dna_seq_names = []
     dna_seqs = []
     flag = False
-    for line in lines:
+    for line in fasta_seq.splitlines():
         if line[0] == '>':
-            dna_seq_names.append(line.split(' ')[0])
+            dna_seq_names.append(line.split(' ')[0][1:])
             flag = True
         else:
             if flag:
@@ -40,8 +46,8 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     with open(file_path, 'w', encoding='utf-8') as input_file:
         input_file.write("seq\tDev_log2_enrichment\tHk_log2_enrichment\n")
         counter_for_dna_seq_names = [0 for i in range(len(dna_seq_names))]
-        for j in range(len(dna_seq_names)):
-            dna_seq = dna_seqs[j]
+        for k in range(len(dna_seq_names)):
+            dna_seq = dna_seqs[k]
             i = 0
             while (i < len(dna_seq)):
                 piece = dna_seq[i:i+248]
@@ -51,12 +57,12 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
                 kmer += "\t0\t0\n"
                 i += 248
                 input_file.write(kmer)
-                counter_for_dna_seq_names[j] += 1
+                counter_for_dna_seq_names[k] += 1
 
     file_path = req_path + "/dna.fa"
     with open(file_path, 'w', encoding='utf-8') as f:
         for i in range(len(dna_seq_names)):
-            f.write(dna_seq_names[i] + '\n')
+            f.write('>' + dna_seq_names[i] + '\n')
             f.write(dna_seqs[i] + '\n')
 
     Faidx(file_path)
@@ -71,15 +77,15 @@ def get_model_prediction(req_path: str):
 def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -> Dict:
 
     global_counter = 0
-    list_of_bed_files - []
+    list_of_bed_files = []
 
     for j, seq_name in enumerate(dna_seq_names):
     
         with open(req_path + f'/result_dev_{seq_name}.bedgraph', 'w', encoding='utf-8') as fd:
             with open(req_path + f'/result_hk_{seq_name}.bedgraph', 'w', encoding='utf-8') as fh:
                 preds = np.load(req_path + '/pred_results.npy')
-                fd.write("track name=\"Dev_log2_enrichment\"\n")
-                fh.write("track name=\"Hk_log2_enrichment\"\n")
+                fd.write("track name=\"Dev_log2_enrichment" + f"_{seq_name}" + "\"\n")
+                fh.write("track name=\"Hk_log2_enrichment" + f"_{seq_name}" + "\"\n")
                 for i in range(counter_for_dna_seq_names[j]):
                     fd.write(f"{seq_name}\t{str(i*248)}\t{str((i+1)*248)}\t{str(preds[global_counter, 0])}\n")
                     fh.write(f"{seq_name}\t{str(i*248)}\t{str((i+1)*248)}\t{str(preds[global_counter, 1])}\n")
@@ -96,11 +102,16 @@ def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -
 @app.route("/api/dnabert-deepstarr/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
-        dna_seq_names, req_path, counter_for_dna_seq_names = save_fasta_and_faidx_files(request)
-        get_model_prediction(req_path)
-        bed_dict = save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names)
 
-        return jsonify(bed_dict)
+        try:
+            dna_seq_names, req_path, counter_for_dna_seq_names = save_fasta_and_faidx_files(request)
+            get_model_prediction(req_path)
+            bed_dict = save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names)
+
+            return jsonify(bed_dict)
+
+        except AssertionError as e:
+            return jsonify({'status':'error', 'message':str(e)}), 400
 
 
 if __name__ == "__main__":
