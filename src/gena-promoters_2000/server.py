@@ -128,7 +128,7 @@ def save_annotations_files(annotation: List[Dict],
     end = 0
     for batch_ans in annotation:
         for seq_element, prediction in zip(batch_ans['seq'], batch_ans['prediction']):
-            if prediction == 0:  # was 1
+            if prediction == 1:
                 end += conf.working_segment
             else:
                 if (end != 0) and (start != end):

@@ -15,7 +15,7 @@ service_folder = Path(__file__).parent.absolute()
 @dataclass
 class SpliceAIConf:
     max_seq_len = 512
-    working_segment = 3000
+    working_segment = 2800
     segment_step = None
     batch_size = 4
     tokenizer = service_folder.joinpath('data/tokenizers/t2t_1000h_multi_32k/')
@@ -46,7 +46,8 @@ class SpliceAIPreprocess:
 
         input_ids = mid_encoding["input_ids"][0]
         token_type_ids = np.zeros(shape=self.max_seq_len, dtype=np.int64)
-        assert len(input_ids) == self.max_seq_len
+
+        assert len(input_ids) == self.max_seq_len, AssertionError(f"Размер входной последовательности превышает 512;")
 
         attention_mask = np.array(input_ids != self.tokenizer.pad_token_id, dtype=np.int64)
 
