@@ -20,7 +20,7 @@ class DeepSeaConf:
     max_seq_len = 1000
     target_len = 200
     context_len = 400
-    max_tokens = 192
+    max_tokens = 256
     num_labels = 919
     tokenizer = service_folder.joinpath('data/tokenizers/human/BPE_32k/')
     model_cls = 'gena_lm.modeling_bert:BertForSequenceClassification'

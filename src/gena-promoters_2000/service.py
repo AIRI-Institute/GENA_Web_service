@@ -34,6 +34,7 @@ class PromotersPreprocessor:
 
     def get_features(self, x):
         tokens = self.tokenizer.tokenize(x)
+        assert len(tokens) <= self.max_seq_len
 
         if self.truncate == 'right':
             tokens = tokens[:self.max_seq_len - 2]
