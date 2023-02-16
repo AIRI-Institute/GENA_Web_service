@@ -36,7 +36,10 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     flag = False
     for line in fasta_seq.splitlines():
         if line[0] == '>':
-            dna_seq_names.append(line.split(' ')[0][1:])
+            if ':' in line:
+                dna_seq_names.append(line.split(' ')[0].split(':')[0][1:])
+            else:
+                dna_seq_names.append(line.split(' ')[0][1:])
             flag = True
         else:
             if flag:
