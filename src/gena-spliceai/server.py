@@ -289,7 +289,8 @@ def respond():
             # read data from request
             if 'file' in request.files:
                 file = request.files['file']
-                file = file.read().decode('UTF-8')
+                file.save(dst=str(respond_files_path.joinpath(f'{request_name}.fasta')))
+                file = open(str(respond_files_path.joinpath(f'{request_name}.fasta')), 'r', encoding='utf-8')
                 samples_queue, respond_dict, descriptions = processing_fasta_file(file, request_name)
             else:
                 dna_seq = request.form.get('dna')
