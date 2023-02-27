@@ -197,7 +197,7 @@ def processing_fasta_text(content: str, request_name: str) -> Tuple[Dict, Dict, 
             sample_desc[sample_name] = description
             respond_fa_file = respond_files_path.joinpath(file_name + '.fa')
             tmp_file = open(respond_fa_file, 'w', encoding='utf-8')
-            tmp_file.write(line)
+            tmp_file.write(f">{sample_name} {description}\n")
 
         elif len(line) == 0:
             tmp_file.close()
