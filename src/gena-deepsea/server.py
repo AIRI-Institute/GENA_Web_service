@@ -42,7 +42,7 @@ def processing_fasta_file(content: str) -> Tuple:
         if line.startswith('>'):
             sample_name, description = processing_fasta_name(line)
             file_queue[sample_name] = ''
-            samples_content[sample_name] = line + '\n'
+            samples_content[sample_name] = f">{sample_name} {description}\n"
         elif len(line) == 0:
             sample_name = 'error'
         else:
