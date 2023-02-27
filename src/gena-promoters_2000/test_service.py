@@ -6,7 +6,6 @@ from server import save_fasta_and_faidx_files, save_annotations_files, instance_
 
 if __name__ == "__main__":
     # read test fasta file
-    # request = '>chr1\nCTCGTTCCGCGCCCGCCATGGAACCGGATGTACGTTATAGCTATTACGCTACTGTGGGTGCACTCGTTCCGCGCCCGCCATGGAACCGGATGGTCTAGCCGATCTGACGCTCGTTCCGCGCCCGCCATGGAACCGGATGCCCCGCCCCTGGTTTCGAGTCGCTGGCCTGCTGGGTGTCATCGCATTATCGATATTGCATTACGTTATAGCTATTACCTCGTTCCGCGCCCGCCATGGAACCGGATGGCTACTGTGGGTGCAGTCTAGC'
     test_file_path = service_folder.joinpath('data/checkpoints/Mid_spl.fa')
     with open(test_file_path, 'r', encoding='utf-8') as fasta:
         request = fasta.read()
