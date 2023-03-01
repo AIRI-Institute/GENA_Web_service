@@ -124,7 +124,7 @@ def respond():
                 "archive": f"{common_path}{archive_path}"
             }
             for bed_file_path in bed_dict['bed']:
-               result['bed'].append(f"/generated/dnabert-promoters-original{bed_file_path}")
+               result['bed'].append(f"{common_path}{bed_file_path}")
 
             return jsonify(result)
         
