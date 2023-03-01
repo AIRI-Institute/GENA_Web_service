@@ -5,6 +5,8 @@ from typing import Dict, List, Optional, Tuple, Sized
 
 from flask import Flask, request, jsonify
 from pyfaidx import Faidx
+import zipfile
+import os
 
 from service import service_folder, PromotersConf, PromotersService
 
@@ -94,8 +96,8 @@ def save_fasta_and_faidx_files(fasta_content: str, request_name: str) -> Tuple:
 
         # todo: убрать заглушку на обработку только одной последовательности в fasta файле, после того договоримся
         #  с фронтом как обрабатывать такие случаи
-        # respond_dict[f"{sample_name}_fasta_file"] = '/generated/gena-promoters-2000/' + file_name + '.fa'
-        respond_dict[f"fasta_file"] = '/generated/gena-promoters-2000/' + file_name + '.fa'
+        # respond_dict[f"{sample_name}_fasta_file"] = file_name + '.fa'
+        respond_dict[f"fasta_file"] = file_name + '.fa'
 
         # splice dna sequence to necessary pieces
         samples_queue[sample_name] = slicer(dna_seq, segment=conf.working_segment, step=conf.segment_step)
@@ -110,8 +112,8 @@ def save_fasta_and_faidx_files(fasta_content: str, request_name: str) -> Tuple:
 
         # todo: убрать заглушку на обработку только одной последовательности в fasta файле, после того договоримся
         #  с фронтом как обрабатывать такие случаи
-        # respond_dict[f"{sample_name}_faidx_file"] = '/generated/gena-promoters-2000/' + file_name + '.fa.fai'
-        respond_dict[f"fai_file"] = '/generated/gena-promoters-2000/' + file_name + '.fa.fai'
+        # respond_dict[f"{sample_name}_faidx_file"] = file_name + '.fa.fai'
+        respond_dict[f"fai_file"] = file_name + '.fa.fai'
 
         total_time = time.time() - st_time
         logger.info(f"create and write {sample_name} faidx file exec time: {total_time:.3f}s")
@@ -138,7 +140,7 @@ def save_annotations_files(annotation: List[Dict],
     promoters_file.write(f'track name=promoters description="{descriptions}"\n')
 
     # add path to file in respond dict
-    respond_dict['bed'].append('/generated/gena-promoters-2000/' + file_name)
+    respond_dict['bed'].append(file_name)
 
     start = 0
     end = 0
@@ -195,7 +197,26 @@ def respond():
                 respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name,
                                                       descriptions)
 
-            return jsonify(respond_dict)
+            # Генерируем архив
+            archive_file_name = f"{request_name}_archive.zip"
+            with zipfile.ZipFile(f"{respond_files_path}/{archive_file_name}", mode="w") as archive:
+                archive.write(f"{respond_files_path}/{respond_dict['fasta_file']}", os.path.basename(respond_dict['fasta_file']))
+                archive.write(f"{respond_files_path}/{respond_dict['fai_file']}", os.path.basename(respond_dict['fai_file']))
+                for bed_file in respond_dict['bed']:
+                    archive.write(f"{respond_files_path}/{bed_file}", os.path.basename(bed_file))
+
+            # Генерируем url для файлов
+            common_path = "/generated/gena-promoters-2000/"
+            result = {
+                "bed": [],
+                "fasta_file": f"{common_path}{respond_dict['fasta_file']}",
+                "fai_file": f"{common_path}{respond_dict['fai_file']}",
+                "archive": f"{common_path}{archive_file_name}"
+            }
+            for bed_file_path in respond_dict['bed']:
+               result['bed'].append(f"{common_path}{bed_file_path}")
+
+            return jsonify(result)
         except AssertionError as e:
             return jsonify({'status': 'error', 'message': str(e)}), 400
 
