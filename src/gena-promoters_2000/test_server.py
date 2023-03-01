@@ -11,7 +11,7 @@ def main():
     with open(test_file_path, 'r', encoding='utf-8') as fasta:
         fasta_content = fasta.read()
 
-    request_data = {"fasta_seq": fasta_content}
+    request_data = {"dna": fasta_content}
 
     result = requests.post(url, json=request_data).json()
     print(result)

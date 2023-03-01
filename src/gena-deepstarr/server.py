@@ -18,25 +18,37 @@ respond_files_path = service_folder.joinpath('data/respond_files/')
 respond_files_path.mkdir(exist_ok=True)
 
 
-def processing_fasta_file(content: str) -> Tuple[Dict[str, str], Dict[str, str]]:
+def processing_fasta_name(desc_line: str) -> Tuple[str, str]:
+    desc_line = desc_line[1:].strip()
+    names = desc_line.split(' ')
+    sample_name = names[0]
+    if ':' in sample_name:
+        seq_names = sample_name.split(':')
+        sample_name = seq_names[0]
+        description = seq_names[1]
+    else:
+        description = ' '.join(names[1:]).strip()
+
+    return sample_name, description
+
+
+def processing_fasta_file(content: str) -> Tuple:
     file_queue = {}
     samples_content = {}
     sample_name = 'error'
+    description = ''
     for line in content.splitlines():
         if line.startswith('>'):
-            sample_name = line[1:].split()[0]
-            if ':' in sample_name:
-                sample_name = sample_name.split(':')[0]
-
+            sample_name, description = processing_fasta_name(line)
             file_queue[sample_name] = ''
-            samples_content[sample_name] = line + '\n'
+            samples_content[sample_name] = f">{sample_name} {description}\n"
         elif len(line) == 0:
             sample_name = 'error'
         else:
             file_queue[sample_name] += line
             samples_content[sample_name] += line + '\n'
 
-    return file_queue, samples_content
+    return file_queue, samples_content, description
 
 
 def slicer(string: Sized, segment: int, step: Optional[int] = None) -> List[str]:
@@ -66,11 +78,11 @@ def slicer(string: Sized, segment: int, step: Optional[int] = None) -> List[str]
     return elements
 
 
-def save_fasta_and_faidx_files(fasta_content: str, request_name: str) -> Tuple[Dict, Dict]:
+def save_fasta_and_faidx_files(fasta_content: str, request_name: str) -> Tuple:
     faidx_time = time.time()
 
     respond_dict = {}
-    samples_queue, samples_content = processing_fasta_file(fasta_content)
+    samples_queue, samples_content, sample_desc = processing_fasta_file(fasta_content)
     for sample_name, dna_seq in samples_queue.items():
         st_time = time.time()
 
@@ -107,13 +119,14 @@ def save_fasta_and_faidx_files(fasta_content: str, request_name: str) -> Tuple[D
     total_time = time.time() - faidx_time
     logger.info(f"create and write faidx file for all samples exec time: {total_time:.3f}s")
 
-    return samples_queue, respond_dict
+    return samples_queue, respond_dict, sample_desc
 
 
 def save_annotations_files(annotation: List[Dict],
                            seq_name: str,
                            respond_dict: Dict,
                            request_name: str,
+                           descriptions: str,
                            coding_type: str = 'utf-8',
                            delimiter: str = '\t') -> Dict:
     st_time = time.time()
@@ -122,13 +135,13 @@ def save_annotations_files(annotation: List[Dict],
     dev_file_name = f"{request_name}_{seq_name}_dev.bedgraph"
     respond_file = respond_files_path.joinpath(dev_file_name)
     dev_file = respond_file.open('w', encoding=coding_type)
-    dev_file.write(f'track name=Dev description="GENA DeepSTARR"\n')
+    dev_file.write(f'track name=Dev description="{descriptions}"\n')
 
     # open fasta files for HK
     hk_file_name = f"{request_name}_{seq_name}_hk.bedgraph"
     respond_file = respond_files_path.joinpath(hk_file_name)
     hk_file = respond_file.open('w', encoding=coding_type)
-    hk_file.write(f'track name=Hk description="GENA DeepSTARR"\n')
+    hk_file.write(f'track name=Hk description="{descriptions}"\n')
 
     # add path to files in respond dict
     respond_dict['bed'].append('/generated/gena-deepstarr/' + dev_file_name)
@@ -175,7 +188,7 @@ def respond():
             assert fasta_content, 'Field DNA sequence or file are required.'
 
             # get queue of dna samples from fasta file
-            samples_queue, respond_dict = save_fasta_and_faidx_files(fasta_content, request_name)
+            samples_queue, respond_dict, descriptions = save_fasta_and_faidx_files(fasta_content, request_name)
 
             # run model on inputs sequences
             respond_dict['bed'] = []
@@ -187,7 +200,8 @@ def respond():
                     sample_results.append(instance_class(batch))  # Dicts with list 'seq'
                     # and 'prediction' vector of batch size
 
-                respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name)
+                respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name,
+                                                      descriptions)
 
             return jsonify(respond_dict)
         except AssertionError as e:
