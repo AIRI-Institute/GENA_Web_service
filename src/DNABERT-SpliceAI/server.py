@@ -5,6 +5,7 @@ import time
 from datetime import date, datetime
 from typing import Dict, Tuple
 import numpy as np
+import zipfile
 
 from pyfaidx import Faidx
 

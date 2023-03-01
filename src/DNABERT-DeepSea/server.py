@@ -6,6 +6,7 @@ from datetime import date, datetime
 from typing import Dict, Tuple
 import numpy as np
 import pandas as pd
+import zipfile
 
 from pyfaidx import Faidx
 
