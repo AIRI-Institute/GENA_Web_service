@@ -189,6 +189,8 @@ def processing_fasta_text(content: str, request_name: str) -> Tuple[Dict, Dict, 
     sample_desc = {}
     file_queue = {}
     respond_dict = {}
+
+    content += '\n\n'
     lines = content.splitlines()
     for line in lines:
         if line.startswith('>'):
