@@ -7,6 +7,8 @@ import numpy as np
 from flask import Flask, request, jsonify
 from pyfaidx import Faidx
 from transformers import AutoTokenizer
+import zipfile
+import os
 
 from service import SpliceAIConf, SpliceaiService, service_folder
 
@@ -151,10 +153,10 @@ def processing_fasta_file(content: TextIO, request_name: str) -> Tuple[Dict, Dic
 
         elif len(line) == 0:
             tmp_file.close()
-            respond_dict[f"fasta_file"] = '/generated/gena-spliceai/' + file_name + '.fa'
+            respond_dict[f"fasta_file"] = file_name + '.fa'
 
             Faidx(respond_fa_file)
-            respond_dict[f"fai_file"] = '/generated/gena-spliceai/' + file_name + '.fa.fai'
+            respond_dict[f"fai_file"] = file_name + '.fa.fai'
 
             # tokenization
             tmp_dna = tmp_dna.strip("N")
@@ -203,10 +205,10 @@ def processing_fasta_text(content: str, request_name: str) -> Tuple[Dict, Dict, 
 
         elif len(line) == 0:
             tmp_file.close()
-            respond_dict[f"fasta_file"] = '/generated/gena-spliceai/' + file_name + '.fa'
+            respond_dict[f"fasta_file"] = file_name + '.fa'
 
             Faidx(respond_fa_file)
-            respond_dict[f"fai_file"] = '/generated/gena-spliceai/' + file_name + '.fa.fai'
+            respond_dict[f"fai_file"] = file_name + '.fa.fai'
 
             # tokenization
             tmp_dna = tmp_dna.strip("N")
@@ -251,8 +253,8 @@ def save_annotations_files(annotation: List[Dict],
     donor_file.write(f'track name=SD description="{bed_descriptions}"\n')
 
     # add paths to files in respond dict
-    respond_dict['bed'].append('/generated/gena-spliceai/' + acceptor_file_name)
-    respond_dict['bed'].append('/generated/gena-spliceai/' + donor_file_name)
+    respond_dict['bed'].append(acceptor_file_name)
+    respond_dict['bed'].append(donor_file_name)
 
     # chr start end (записи только для позитивного класса)
     start = 0
@@ -311,7 +313,26 @@ def respond():
                 respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name,
                                                       descriptions[sample_name])
 
-            return jsonify(respond_dict)
+            # Генерируем архив
+            archive_file_name = f"{request_name}_archive.zip"
+            with zipfile.ZipFile(f"{respond_files_path}/{archive_file_name}", mode="w") as archive:
+                archive.write(f"{respond_files_path}/{respond_dict['fasta_file']}", os.path.basename(respond_dict['fasta_file']))
+                archive.write(f"{respond_files_path}/{respond_dict['fai_file']}", os.path.basename(respond_dict['fai_file']))
+                for bed_file in respond_dict['bed']:
+                    archive.write(f"{respond_files_path}/{bed_file}", os.path.basename(bed_file))
+
+            # Генерируем url для файлов
+            common_path = "/generated/gena-spliceai/"
+            result = {
+                "bed": [],
+                "fasta_file": f"{common_path}{respond_dict['fasta_file']}",
+                "fai_file": f"{common_path}{respond_dict['fai_file']}",
+                "archive": f"{common_path}{archive_file_name}"
+            }
+            for bed_file_path in respond_dict['bed']:
+               result['bed'].append(f"{common_path}{bed_file_path}")
+
+            return jsonify(result)
         except AssertionError as e:
             return jsonify({'status': 'error', 'message': str(e)}), 400
 

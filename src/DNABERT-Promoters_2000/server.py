@@ -5,6 +5,7 @@ import time
 from datetime import date, datetime
 from typing import Dict, Tuple
 import numpy as np
+import zipfile
 
 from pyfaidx import Faidx
 
@@ -92,9 +93,9 @@ def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -
                     f.write(f"{seq_name}\t{str(i*2000)}\t{str((i+1)*2000)}\t{str(preds[global_counter])}\n")
                 global_counter += 1
 
-        list_of_bed_files.append(f"/generated/dnabert-promoters-2000{req_path}/result_{seq_name}.bed")
+        list_of_bed_files.append(f"{req_path}/result_{seq_name}.bed")
 
-    bed_dict = {"bed": list_of_bed_files, "fasta_file":f"/generated/dnabert-promoters-2000{req_path}/dna.fa", "fai_file":f"/generated/dnabert-promoters-2000{req_path}/dna.fa.fai"}
+    bed_dict = {"bed": list_of_bed_files, "fasta_file":f"{req_path}/dna.fa", "fai_file":f"{req_path}/dna.fa.fai"}
 
     return bed_dict
 
@@ -107,7 +108,25 @@ def respond():
             dna_seq_names, req_path, counter_for_dna_seq_names = save_fasta_and_faidx_files(request)
             get_model_prediction(req_path)
             bed_dict = save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names)
-            return jsonify(bed_dict)
+
+            archive_path = f"{req_path}/archive.zip"
+            with zipfile.ZipFile(archive_path, mode="w") as archive:
+                archive.write(bed_dict['fasta_file'], os.path.basename(bed_dict['fasta_file']))
+                archive.write(bed_dict['fai_file'], os.path.basename(bed_dict['fai_file']))
+                for bed_file in bed_dict['bed']:
+                    archive.write(bed_file, os.path.basename(bed_file))
+
+            common_path = "/generated/dnabert-promoters-2000"
+            result = {
+                "bed": [],
+                "fasta_file": f"{common_path}{bed_dict['fasta_file']}",
+                "fai_file": f"{common_path}{bed_dict['fai_file']}",
+                "archive": f"{common_path}{archive_path}"
+            }
+            for bed_file_path in bed_dict['bed']:
+               result['bed'].append(f"{common_path}{bed_file_path}")
+
+            return jsonify(result)
         
         except AssertionError as e:
             return jsonify({'status':'error', 'message':str(e)}), 400

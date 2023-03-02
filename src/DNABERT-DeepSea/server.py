@@ -6,6 +6,7 @@ from datetime import date, datetime
 from typing import Dict, Tuple
 import numpy as np
 import pandas as pd
+import zipfile
 
 from pyfaidx import Faidx
 
@@ -89,7 +90,7 @@ def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -
 
         # write bed files
         for file_type in annotation_table['FileName'].unique():
-            list_of_bed_files.append(f"/generated/dnabert-deepsea{req_path}/result_{seq_name}_{file_type}.bed")
+            list_of_bed_files.append(f"{req_path}/result_{seq_name}_{file_type}.bed")
             with open(req_path + f'/result_{seq_name}_{file_type}.bed', 'w', encoding='utf-8') as f:
 
                 f.write(f"track name=\"{file_type}" + f"_{seq_name}" + "\"\n")
@@ -107,7 +108,7 @@ def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -
 
         global_counter += counter_for_dna_seq_names[j]
 
-    bed_dict = {"bed": list_of_bed_files, "fasta_file":f"/generated/dnabert-deepsea{req_path}/dna.fa", "fai_file":f"/generated/dnabert-deepsea{req_path}/dna.fa.fai"}
+    bed_dict = {"bed": list_of_bed_files, "fasta_file":f"{req_path}/dna.fa", "fai_file":f"{req_path}/dna.fa.fai"}
 
     return bed_dict
 
@@ -123,7 +124,24 @@ def respond():
             get_model_prediction(req_path)
             bed_dict = save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names)
 
-            return jsonify(bed_dict)
+            archive_path = f"{req_path}/archive.zip"
+            with zipfile.ZipFile(archive_path, mode="w") as archive:
+                archive.write(bed_dict['fasta_file'], os.path.basename(bed_dict['fasta_file']))
+                archive.write(bed_dict['fai_file'], os.path.basename(bed_dict['fai_file']))
+                for bed_file in bed_dict['bed']:
+                    archive.write(bed_file, os.path.basename(bed_file))
+
+            common_path = "/generated/dnabert-deepsea"
+            result = {
+                "bed": [],
+                "fasta_file": f"{common_path}{bed_dict['fasta_file']}",
+                "fai_file": f"{common_path}{bed_dict['fai_file']}",
+                "archive": f"{common_path}{archive_path}"
+            }
+            for bed_file_path in bed_dict['bed']:
+               result['bed'].append(f"{common_path}{bed_file_path}")
+
+            return jsonify(result)
 
         except AssertionError as e:
             return jsonify({'status':'error', 'message':str(e)}), 400
