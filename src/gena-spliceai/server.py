@@ -1,5 +1,7 @@
 import logging
+import os
 import time
+import zipfile
 from datetime import date, datetime
 from typing import Dict, Tuple, Optional, Sized, List, TextIO
 
@@ -7,8 +9,6 @@ import numpy as np
 from flask import Flask, request, jsonify
 from pyfaidx import Faidx
 from transformers import AutoTokenizer
-import zipfile
-import os
 
 from service import SpliceAIConf, SpliceaiService, service_folder
 
@@ -316,21 +316,21 @@ def respond():
             # Генерируем архив
             archive_file_name = f"{request_name}_archive.zip"
             with zipfile.ZipFile(f"{respond_files_path}/{archive_file_name}", mode="w") as archive:
-                archive.write(f"{respond_files_path}/{respond_dict['fasta_file']}", os.path.basename(respond_dict['fasta_file']))
-                archive.write(f"{respond_files_path}/{respond_dict['fai_file']}", os.path.basename(respond_dict['fai_file']))
+                archive.write(f"{respond_files_path}/{respond_dict['fasta_file']}",
+                              os.path.basename(respond_dict['fasta_file']))
+                archive.write(f"{respond_files_path}/{respond_dict['fai_file']}",
+                              os.path.basename(respond_dict['fai_file']))
                 for bed_file in respond_dict['bed']:
                     archive.write(f"{respond_files_path}/{bed_file}", os.path.basename(bed_file))
 
             # Генерируем url для файлов
             common_path = "/generated/gena-spliceai/"
-            result = {
-                "bed": [],
-                "fasta_file": f"{common_path}{respond_dict['fasta_file']}",
-                "fai_file": f"{common_path}{respond_dict['fai_file']}",
-                "archive": f"{common_path}{archive_file_name}"
-            }
+            result = {"bed": [],
+                      "fasta_file": f"{common_path}{respond_dict['fasta_file']}",
+                      "fai_file": f"{common_path}{respond_dict['fai_file']}",
+                      "archive": f"{common_path}{archive_file_name}"}
             for bed_file_path in respond_dict['bed']:
-               result['bed'].append(f"{common_path}{bed_file_path}")
+                result['bed'].append(f"{common_path}{bed_file_path}")
 
             return jsonify(result)
         except AssertionError as e:
