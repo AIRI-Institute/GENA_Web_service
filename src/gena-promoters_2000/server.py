@@ -100,7 +100,7 @@ def save_fasta_and_faidx_files(fasta_content: str, request_name: str) -> Tuple:
         respond_dict[f"fasta_file"] = file_name + '.fa'
 
         # splice dna sequence to necessary pieces
-        samples_queue[sample_name] = slicer(dna_seq, segment=conf.working_segment, step=conf.segment_step)
+        samples_queue[sample_name] = slicer(dna_seq, segment=conf.working_segment)  # , step=conf.segment_step
         samples_queue[sample_name] = slicer(samples_queue[sample_name], segment=conf.batch_size)  # List of batches
 
         total_time = time.time() - st_time
@@ -156,6 +156,10 @@ def save_annotations_files(annotation: List[Dict],
                 else:
                     start += conf.working_segment
                     end += conf.working_segment
+
+    if start != end:
+        string = seq_name + delimiter + str(start) + delimiter + str(end) + '\n'  # delimiter + 'P'
+        promoters_file.write(string)
 
     promoters_file.close()
 
