@@ -59,7 +59,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
                 for j in range(1, len(piece) - 6 + 1):
                     kmer += " " + piece[j:j+6]
                 kmer += "\t0\n"
-                i += 2000
+                i += 2000 // 2
                 input_file.write(kmer)
                 counter_for_dna_seq_names[k] += 1
 
@@ -90,7 +90,7 @@ def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -
             f.write("track name=\"Promoters" + f"_{seq_name}" + "\"\n")
             for i in range(counter_for_dna_seq_names[j]):
                 if preds[global_counter] > 0.5:
-                    f.write(f"{seq_name}\t{str(i*2000)}\t{str((i+1)*2000)}\t{str(preds[global_counter])}\n")
+                    f.write(f"{seq_name}\t{str(int(0.5*i*2000))}\t{str(int((0.5*i+1)*2000))}\t{str(preds[global_counter])}\n")
                 global_counter += 1
 
         list_of_bed_files.append(f"{req_path}/result_{seq_name}.bed")
