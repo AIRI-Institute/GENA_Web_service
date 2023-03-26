@@ -58,7 +58,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
                 for j in range(1, len(piece) - 6 + 1):
                     kmer += " " + piece[j:j+6]
                 kmer += "\t0" * 4101 + "\n"
-                i += 4101
+                i += 4101 // 2
                 input_file.write(kmer)
                 counter_for_dna_seq_names[k] += 1
 
@@ -93,9 +93,9 @@ def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -
                 for i in range(counter_for_dna_seq_names[j]):
                     for k in range(4096):
                         if preds[global_counter, k, 1] == 1:
-                            fd.write(f"{seq_name}\t{str(i*4101 + k)}\t{str(i*4101 + k + 6)}\t{str(preds[global_counter, k, 1])}\n")
+                            fd.write(f"{seq_name}\t{str(int(0.5*i*4101 + k))}\t{str(int(0.5*i*4101 + k + 6))}\t{str(preds[global_counter, k, 1])}\n")
                         if preds[global_counter, k, 2] == 1:
-                            fa.write(f"{seq_name}\t{str(i*4101 + k)}\t{str(i*4101 + k + 6)}\t{str(preds[global_counter, k, 2])}\n")
+                            fa.write(f"{seq_name}\t{str(int(0.5*i*4101 + k))}\t{str(int(0.5*i*4101 + k + 6))}\t{str(preds[global_counter, k, 2])}\n")
                     global_counter += 1
 
         list_of_bed_files.append(f"{req_path}/result_donors_{seq_name}.bed")
