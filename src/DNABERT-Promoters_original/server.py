@@ -90,7 +90,7 @@ def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -
             f.write("track name=\"Promoters" + f"_{seq_name}" + "\"\n")
             for i in range(counter_for_dna_seq_names[j]):
                 if preds[global_counter] > 0.5:
-                    f.write(f"{seq_name}\t{str(i*100)}\t{str((i+1)*100)}\t{str(preds[global_counter])}\n")
+                    f.write(f"{seq_name}\t{str(int(0.5*i*100))}\t{str(int((0.5*i+1)*100))}\t{str(preds[global_counter])}\n")
                 global_counter += 1
 
         list_of_bed_files.append(f"{req_path}/result_{seq_name}.bed")
