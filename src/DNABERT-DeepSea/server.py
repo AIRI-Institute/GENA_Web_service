@@ -55,7 +55,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
             dna_seq = dna_seqs[k]
             i = 0
             while (i < len(dna_seq)):
-                piece = dna_seq[i:i+1024]
+                piece = dna_seq[i:i+1024].upper()
                 kmer = piece[:6]
                 for j in range(1, len(piece) - 6 + 1):
                     kmer += " " + piece[j:j+6]
