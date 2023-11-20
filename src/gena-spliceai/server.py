@@ -32,7 +32,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     else:
         fasta_seq = request.form.get('dna')
 
-    #assert fasta_seq, 'Field DNA sequence or file are required.'
+    assert fasta_seq, 'Field DNA sequence or file are required.'
     # fasta_seq = service_request.json["fasta_seq"]
     # print(fasta_seq, flush=True)
 
