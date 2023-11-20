@@ -20,7 +20,7 @@ app = Flask(__name__)
 
 def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict]:
     st_time = time.time()
-    req_path = f"data/respond_files/request_{date.today()}_{datetime.now().microsecond}"
+    req_path = f"data/respond_files/request_{date.today()}_{datetime.now().microsecond}_" # without _
     os.makedirs(req_path)
 
     tokenizer = AutoTokenizer.from_pretrained('data/tokenizers/t2t_1000h_multi_32k/')
@@ -66,7 +66,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
                 all_tokenized_sequences[k].append(tokenized_seq)  
                 counter += 15000
 
-    file_path = req_path + "/dna.fa"
+    file_path = req_path + "dna.fa" # "/dna.fa"
     with open(file_path, 'w', encoding='utf-8') as f:
         for i in range(len(dna_seq_names)):
             f.write('>' + dna_seq_names[i] + '\n')
@@ -97,7 +97,7 @@ def get_model_prediction(all_tokenized_sequences):
         tokenized_sequences_for_one_seq_name = all_tokenized_sequences[k]
         for i in range(len(tokenized_sequences_for_one_seq_name)):
             predictions = torch.sigmoid(model(**tokenized_sequences_for_one_seq_name[i])["logits"]).squeeze()
-            print(predictions.shape)
+            # print(predictions.shape)
             all_preds_acceptors[-1] += list(predictions[:, 1].detach().cpu().numpy().squeeze())
             all_preds_donors[-1] += list(predictions[:, 2].detach().cpu().numpy().squeeze())
 
@@ -113,8 +113,8 @@ def save_annotations_files(dna_seq_names, req_path, all_preds_acceptors, all_pre
 
     for j, seq_name in enumerate(dna_seq_names):
     
-        with open(req_path + f'/result_donors_{seq_name}.bed', 'w', encoding='utf-8') as fd:
-            with open(req_path + f'/result_acceptors_{seq_name}.bed', 'w', encoding='utf-8') as fa:
+        with open(req_path + f'result_donors_{seq_name}.bed', 'w', encoding='utf-8') as fd: # need / before results...
+            with open(req_path + f'result_acceptors_{seq_name}.bed', 'w', encoding='utf-8') as fa: # need / before results...
                 all_preds_acceptors_mod = np.where(np.array(all_preds_acceptors[j]) > 0.5, 1, 0)
                 all_preds_donors_mod = np.where(np.array(all_preds_donors[j]) > 0.5, 1, 0)
 
@@ -146,10 +146,10 @@ def save_annotations_files(dna_seq_names, req_path, all_preds_acceptors, all_pre
                 
                 # print(tokens_bp_for_one_seq_name, flush=True)
 
-        list_of_bed_files.append(f"{req_path}/result_donors_{seq_name}.bed")
-        list_of_bed_files.append(f"{req_path}/result_acceptors_{seq_name}.bed")
+        list_of_bed_files.append(f"{req_path}result_donors_{seq_name}.bed") # need / before results...
+        list_of_bed_files.append(f"{req_path}result_acceptors_{seq_name}.bed") # need / before results...
 
-    bed_dict = {"bed": list_of_bed_files, "fasta_file":f"{req_path}/dna.fa", "fai_file":f"{req_path}/dna.fa.fai"}
+    bed_dict = {"bed": list_of_bed_files, "fasta_file":f"{req_path}dna.fa", "fai_file":f"{req_path}dna.fa.fai"} # need / before dna...
 
     return bed_dict
 
@@ -163,7 +163,7 @@ def respond():
             all_preds_acceptors, all_preds_donors = get_model_prediction(all_tokenized_sequences)
             bed_dict = save_annotations_files(dna_seq_names, req_path, all_preds_acceptors, all_preds_donors, all_tokenized_sequences, tokenizer)
 
-            archive_path = f"{req_path}/archive.zip"
+            archive_path = f"{req_path}archive.zip" # need / before archive...
             with zipfile.ZipFile(archive_path, mode="w") as archive:
                 archive.write(bed_dict['fasta_file'], os.path.basename(bed_dict['fasta_file']))
                 archive.write(bed_dict['fai_file'], os.path.basename(bed_dict['fai_file']))
