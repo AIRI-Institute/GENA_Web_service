@@ -33,8 +33,8 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
         fasta_seq = request.form.get('dna')
 
     #assert fasta_seq, 'Field DNA sequence or file are required.'
-    fasta_seq = service_request.json["fasta_seq"]
-    print(fasta_seq, flush=True)
+    # fasta_seq = service_request.json["fasta_seq"]
+    # print(fasta_seq, flush=True)
 
     dna_seq_names = []
     dna_seqs = []
@@ -78,15 +78,15 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
 
 
 def get_model_prediction(all_tokenized_sequences):
-    print('ok1', flush=True)
+    # print('ok1', flush=True)
     model_cfg = AutoConfig.from_pretrained('data/configs/hf_bigbird_L12-H768-A12-V32k-L4096.json', num_labels=3)
-    print('ok2', flush=True)
+    # print('ok2', flush=True)
     model = BigBirdForTokenClassification(model_cfg)
-    print('ok3', flush=True)
+    # print('ok3', flush=True)
     model.load_state_dict(torch.load('data/checkpoints/model_best.pth', map_location='cpu')["model_state_dict"])
-    print('ok4', flush=True)
+    # print('ok4', flush=True)
     model.eval()
-    print('ok5', flush=True)
+    # print('ok5', flush=True)
 
     all_preds_donors = []
     all_preds_acceptors = []
@@ -118,10 +118,10 @@ def save_annotations_files(dna_seq_names, req_path, all_preds_acceptors, all_pre
                 all_preds_acceptors_mod = np.where(np.array(all_preds_acceptors[j]) > 0.5, 1, 0)
                 all_preds_donors_mod = np.where(np.array(all_preds_donors[j]) > 0.5, 1, 0)
 
-                print(str(all_preds_acceptors_mod), flush=True)
+                # print(str(all_preds_acceptors_mod), flush=True)
                 tokenized_sequences_for_one_seq_name = all_tokenized_sequences[j]
 
-                print(tokenized_sequences_for_one_seq_name[0]["input_ids"], flush=True)
+                # print(tokenized_sequences_for_one_seq_name[0]["input_ids"], flush=True)
 
                 fd.write("track name=\"SD" + f"_{seq_name}" + "\"\n")
                 fa.write("track name=\"SA" + f"_{seq_name}" + "\"\n")
@@ -131,7 +131,7 @@ def save_annotations_files(dna_seq_names, req_path, all_preds_acceptors, all_pre
                 for i in range(len(tokenized_sequences_for_one_seq_name)):
                     token_seq = tokenized_sequences_for_one_seq_name[i]["input_ids"][0]
                     tokens_bp_for_one_seq_name = tokenizer.convert_ids_to_tokens(token_seq)
-                    print(len(token_seq), flush=True)
+                    # print(len(token_seq), flush=True)
                     for k in range(len(token_seq)):
                         if token_seq[k] not in [1, 2, 3]:
                             token_len_bp = len(tokens_bp_for_one_seq_name[k])
@@ -144,7 +144,7 @@ def save_annotations_files(dna_seq_names, req_path, all_preds_acceptors, all_pre
                     global_counter_tokens += 4096
 
                 
-                print(tokens_bp_for_one_seq_name, flush=True)
+                # print(tokens_bp_for_one_seq_name, flush=True)
 
         list_of_bed_files.append(f"{req_path}/result_donors_{seq_name}.bed")
         list_of_bed_files.append(f"{req_path}/result_acceptors_{seq_name}.bed")
