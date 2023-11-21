@@ -101,7 +101,7 @@ def get_model_prediction(all_tokenized_sequences):
             all_preds_acceptors[-1] += list(predictions[:, 1].detach().cpu().numpy().squeeze())
             all_preds_donors[-1] += list(predictions[:, 2].detach().cpu().numpy().squeeze())
 
-    print(all_preds_donors, flush=True)
+    # print(all_preds_donors, flush=True)
 
     return all_preds_acceptors, all_preds_donors
 
@@ -146,10 +146,10 @@ def save_annotations_files(dna_seq_names, req_path, all_preds_acceptors, all_pre
                 
                 # print(tokens_bp_for_one_seq_name, flush=True)
 
-        list_of_bed_files.append(f"/{req_path.split('/')[-1]}donors_{seq_name}.bed") # need / before results...
-        list_of_bed_files.append(f"/{req_path.split('/')[-1]}acceptors_{seq_name}.bed") # need / before results...
+        list_of_bed_files.append(f"{req_path.split('/')[-1]}donors_{seq_name}.bed") # need / before results...
+        list_of_bed_files.append(f"{req_path.split('/')[-1]}acceptors_{seq_name}.bed") # need / before results...
 
-    bed_dict = {"bed": list_of_bed_files, "fasta_file":f"{req_path}dna.fa", "fai_file":f"{req_path}dna.fa.fai"} # need / before dna...
+    bed_dict = {"bed": list_of_bed_files, "fasta_file":f"{req_path.split('/')[-1]}dna.fa", "fai_file":f"{req_path.split('/')[-1]}dna.fa.fai"} # need / before dna...
 
     return bed_dict
 
@@ -175,7 +175,7 @@ def respond():
                 "bed": [],
                 "fasta_file": f"{common_path}{bed_dict['fasta_file']}",
                 "fai_file": f"{common_path}{bed_dict['fai_file']}",
-                "archive": f"{common_path}{archive_path}"
+                "archive": f"{common_path}{req_path.split('/')[-1]}archive.zip"
             }
             for bed_file_path in bed_dict['bed']:
                result['bed'].append(f"{common_path}{bed_file_path}")
