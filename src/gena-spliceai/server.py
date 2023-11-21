@@ -163,7 +163,7 @@ def respond():
             all_preds_acceptors, all_preds_donors = get_model_prediction(all_tokenized_sequences)
             bed_dict = save_annotations_files(dna_seq_names, req_path, all_preds_acceptors, all_preds_donors, all_tokenized_sequences, tokenizer)
 
-            archive_path = f"/{req_path.split('/')[-1]}archive.zip" # need / before archive...
+            archive_path = f"{req_path}archive.zip" # need / before archive...
             with zipfile.ZipFile(archive_path, mode="w") as archive:
                 archive.write(bed_dict['fasta_file'], os.path.basename(bed_dict['fasta_file']))
                 archive.write(bed_dict['fai_file'], os.path.basename(bed_dict['fai_file']))
