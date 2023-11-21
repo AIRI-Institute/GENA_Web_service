@@ -110,6 +110,7 @@ def save_annotations_files(dna_seq_names, req_path, all_preds_acceptors, all_pre
 
     global_counter = 0
     list_of_bed_files = []
+    print(dna_seq_names, '$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
 
     for j, seq_name in enumerate(dna_seq_names):
     
