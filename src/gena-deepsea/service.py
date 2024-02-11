@@ -1,13 +1,18 @@
 import inspect
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
+from captum.attr import LayerIntegratedGradients
 
 import numpy as np
 import torch
 from transformers import AutoConfig, AutoTokenizer
+import pandas as pd
 
 from gena_lm.utils import get_cls_by_name
+import logging
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 service_folder = Path(__file__).parent.absolute()
 
@@ -20,12 +25,19 @@ class DeepSeaConf:
     max_seq_len = 1000
     target_len = 200
     context_len = 400
-    max_tokens = 256
+    max_tokens = 512
     num_labels = 919
     tokenizer = service_folder.joinpath('data/tokenizers/human/BPE_32k/')
     model_cls = 'gena_lm.modeling_bert:BertForSequenceClassification'
     model_cfg = service_folder.joinpath('data/configs/L12-H768-A12-V32k-preln.json')
     checkpoint_path = service_folder.joinpath('data/checkpoints/model_best.pth')
+    attr_steps = 10
+
+
+def summarize_attributions(attributions):
+        attributions = attributions.sum(dim=-1).squeeze(0)
+        attributions = attributions / torch.norm(attributions)
+        return attributions
 
 
 class DeepSeaService:
@@ -88,14 +100,14 @@ class DeepSeaService:
 
         return batch
 
-    def __call__(self, dna_examples: List[str]) -> Dict:
+    def __call__(self, dna_queries: List[Dict]) -> Dict:
         # preprocessing
-        batch = []
-        for dna_seq in dna_examples:
-            batch.append(self.preprocess(dna_seq))
+        samples = []
+        for dna_seq in dna_queries:
+            samples.append(self.preprocess(dna_seq['seq']))
 
         # model inference
-        batch = self.create_batch(batch)
+        batch = self.create_batch(samples)
         model_out = self.model(**{k: batch[k] for k in batch if k in self.model_forward_args})
 
         # postprocessing
@@ -103,12 +115,111 @@ class DeepSeaService:
         # write predictions
         predictions = torch.sigmoid(model_out['logits']).detach().numpy()
         labels = np.where(predictions > 0.5, 1, 0)
+        
+
+        attributions = self.annotate_predictions(samples, labels, dna_queries)
+
         service_response['prediction'] = labels  # [bs, 919]
         # write tokens
-        service_response['seq'] = []
-        input_ids = batch['input_ids'].detach().numpy()
-        for batch_element in input_ids:
-            service_response['seq'].append(self.tokenizer.convert_ids_to_tokens(batch_element,
-                                                                                skip_special_tokens=True))
+        #service_response['seq'] = []
+        #input_ids = batch['input_ids'].detach().numpy()
+        #for batch_element in input_ids:
+        #    service_response['seq'].append(self.tokenizer.convert_ids_to_tokens(batch_element,
+                                                                                #skip_special_tokens=True))
+        service_response['attr'] = attributions
+        service_response['queries'] = dna_queries
+
 
         return service_response
+
+    def create_attr_object(self):
+        def predict_classifier(inputs, 
+                               token_type_ids=None, 
+                               attention_mask=None):
+            assert token_type_ids is not None
+            assert attention_mask is not None
+            output = self.model(inputs, 
+                   token_type_ids=token_type_ids, 
+                   attention_mask=attention_mask)
+            return output.logits
+        lig_object = LayerIntegratedGradients(predict_classifier, self.model.bert.embeddings)
+        return lig_object
+
+    def annotate_predictions(self, samples, labels, dna_queries):
+        lig_object = self.create_attr_object()
+        attributions = []
+        for si, smpl in enumerate(samples):
+            logger.info(f"Processing attributions for sample {si}")
+            smpl_attrs = {}
+            targets = np.where(labels[si] == 1)[0]
+
+            for ti in targets:
+                attr = self.annotate_sample(lig_object=lig_object, sample=smpl, target=int(ti), query=dna_queries[si])
+                smpl_attrs[ti] = attr
+
+            attributions.append(smpl_attrs)
+        return attributions
+
+    def annotate_sample(self, lig_object, sample, target, query):
+        presample = sample
+        sample = {
+           "input_ids": torch.LongTensor(sample['input_ids']).unsqueeze(0),
+           "token_type_ids": torch.LongTensor(sample['token_type_ids']).unsqueeze(0),
+           "attention_mask": torch.LongTensor(sample['attention_mask']).unsqueeze(0),
+        }
+
+        attributions = lig_object.attribute(inputs=(sample['input_ids'],
+                                            sample['token_type_ids'],
+                                            sample['attention_mask']),
+                                    target=target,
+                                    n_steps=self.conf.attr_steps,
+                                    return_convergence_delta=False)
+
+        attributions = attributions[:, 1:-1, :] # remove CLS and SEP
+        attributions = summarize_attributions(attributions).cpu()
+
+        bed_like_table = {'tok_pos': [], 'token': [], 'attr': [], 'start': [], 'end': []}
+        
+
+        pretokens = self.tokenizer.convert_ids_to_tokens(presample['input_ids'], skip_special_tokens=False)
+        tokens = pretokens[1:-1]
+
+
+        cur_pos = 0
+        for i, tok in enumerate(tokens):
+            attr = attributions[i].item()
+            bed_like_table['tok_pos'].append(i)
+            bed_like_table['token'].append(tok)
+            bed_like_table['attr'].append(attr)
+            bed_like_table['start'].append(cur_pos)
+            if tok == '[UNK]':
+                cur_pos += 1
+            else:
+                cur_pos += len(tok)
+            bed_like_table['end'].append(cur_pos)
+
+
+        df = pd.DataFrame(bed_like_table)
+       
+        df = df[np.logical_and(df['start'] >= query['lpad'],
+                               df['end'] < (cur_pos - query['rpad'])
+                              )]
+        df['start'] = df['start'] + query['context_start']
+
+        if df.shape[0] == 0:
+            with open("logHI.txt", "a") as out:
+                print(pretokens,
+                        file=out)
+                print(presample['input_ids'],
+                        file=out)
+                print(tokens, 
+                        file=out)
+                print(query['seq'], 
+                        file=out)
+                print(query, file=out)
+                print(pd.DataFrame(bed_like_table), file=out)
+                print(self.tokenizer, file=out)
+                print(presample['input_ids'], file=out)
+
+        return df 
+

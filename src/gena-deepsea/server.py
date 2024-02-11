@@ -1,8 +1,10 @@
 import logging
 import time
+from collections import defaultdict
 from datetime import date, datetime
 from typing import Dict, Tuple, List, Sized, Optional
 
+import numpy as np 
 import pandas as pd
 from flask import Flask, request, jsonify
 from pyfaidx import Faidx
@@ -19,7 +21,7 @@ conf = DeepSeaConf()
 instance_class = DeepSeaService(conf)
 respond_files_path = service_folder.joinpath('data/respond_files/')
 respond_files_path.mkdir(exist_ok=True)
-
+tokenizer = instance_class.tokenizer
 
 def processing_fasta_name(desc_line: str) -> Tuple[str, str]:
     desc_line = desc_line[1:].strip()
@@ -54,31 +56,91 @@ def processing_fasta_file(content: str) -> Tuple:
     return file_queue, samples_content, description
 
 
-def slicer(string: Sized, segment: int, step: Optional[int] = None) -> List[str]:
-    elements = list()
-    string_len = len(string)
-    if string_len < segment:
-        string += 'N' * (segment - string_len)
+def slice_sequence(seq: str, 
+                   context_window: int,
+                   pred_window: int,
+                   max_tokens: int,
+                   resize_attempts: int = 10) -> list[str]:
+    dv, m = divmod(context_window - pred_window, 2)
+    stepL = dv
+    stepR = dv + m
 
-    if step is not None:
-        ind = 0
-        while string_len >= segment:
-            elements.append(string[(ind * step):(ind * step) + segment])
-            string_len -= step
-            ind += 1
-        # добавляем оставшийся конец строки
-        elements.append(string[(ind * step):])
-    else:
-        ind = 0
-        while string_len >= segment:
-            elements.append(string[(ind * segment):((ind + 1) * segment)])
-            string_len -= segment
-            ind += 1
-        # добавляем оставшийся конец строки
-        if string_len > 0:
-            elements.append(string[(ind * segment):])
+    initial_len = len(seq)
+    slices = []
 
-    return elements
+    for pred_start in range(0, len(seq), pred_window):
+        pred_end = pred_start + pred_window
+        if pred_end <= len(seq):
+            addL = 0
+            addR = 0
+        else: # pred_end > len(seq)
+            add_pad = pred_end - len(seq)
+            pred_end = len(seq)
+            dv, m = divmod(add_pad, 2)
+            addL = dv
+            addR = dv + m
+
+        context_start = pred_start - stepL - addL
+        context_end = pred_end + stepR + addR
+
+        cur_slice = seq[pred_start:pred_end]
+        if context_start >= 0:
+            lpad = 0
+            cur_slice = seq[context_start:pred_start] + cur_slice
+        else: # context_start < 0
+            lpad = -context_start
+            context_start = 0
+            cur_slice = 'N' * lpad + seq[context_start:pred_start] + cur_slice
+
+        if context_end <= len(seq):
+            rpad = 0 
+            cur_slice = cur_slice + seq[pred_end:context_end]
+        else: # context_end > len(seq)
+            rpad = context_end - len(seq)
+            context_end = len(seq)
+            cur_slice = cur_slice + seq[pred_end:context_end] + 'N' * rpad
+
+        tok = tokenizer.tokenize(cur_slice, add_special_tokens=True)
+        for _ in range(resize_attempts):
+            if len(tok) <= max_tokens:
+                break
+            
+            if lpad != 0 or rpad != 0:
+                lpad //= 2
+                rpad //= 2
+
+                if rpad != 0:
+                    cur_slice = cur_slice[lpad:-rpad]
+                else:
+                    cur_slice = cur_slice[lpad:]
+            else:
+                left_shift = (pred_start - context_start) // 2
+                right_shift = (context_end - pred_end) // 2
+                if left_shift != 0 or right_shift != 0:
+                    context_start += left_shift
+                    context_end -= right_shift
+                    cur_slice = cur_slice[left_shift:-right_shift]
+                else:
+                    break
+            tok = tokenizer.tokenize(cur_slice, 
+                                     add_special_tokens=True)
+ 
+        slices.append({'seq': cur_slice,
+                       'context_start': context_start,
+                       'context_end': context_end,
+                       'pred_start': pred_start,
+                       'pred_end': pred_end,
+                       'lpad': lpad,
+                       'rpad': rpad})
+
+    return slices
+
+
+def form_batches(seqs: list[str], batch_size: int):
+    batches = []
+    for s in range(0, len(seqs), batch_size):
+        batches.append(seqs[s:s+batch_size])
+    return batches
 
 
 def save_fasta_and_faidx_files(fasta_content: str, request_name: str) -> Tuple:
@@ -101,8 +163,12 @@ def save_fasta_and_faidx_files(fasta_content: str, request_name: str) -> Tuple:
         respond_dict[f"fasta_file"] = file_name + '.fa'
 
         # splice dna sequence to necessary pieces
-        samples_queue[sample_name] = slicer(dna_seq, segment=conf.working_segment, step=conf.segment_step)
-        samples_queue[sample_name] = slicer(samples_queue[sample_name], segment=conf.batch_size)  # List of batches
+        samples_queue[sample_name] = form_batches(
+                slice_sequence(dna_seq, 
+                    context_window=conf.working_segment,
+                    pred_window=conf.segment_step,
+                    max_tokens=conf.max_tokens),
+                batch_size=conf.batch_size)
 
         total_time = time.time() - st_time
         logger.info(f"write {sample_name} fasta file exec time: {total_time:.3f}s")
@@ -125,6 +191,10 @@ def save_fasta_and_faidx_files(fasta_content: str, request_name: str) -> Tuple:
     return samples_queue, respond_dict, sample_desc
 
 
+def only_N(tok):
+    return len(tok) == tok.count('N')
+
+
 def save_annotations_files(annotation: List[Dict],
                            seq_name: str,
                            respond_dict: Dict,
@@ -137,14 +207,15 @@ def save_annotations_files(annotation: List[Dict],
     # read annotation file
     annotation_table = pd.read_csv(service_folder.joinpath('data/checkpoints/annotation_table.csv'),
                                    index_col='targetID')
-
+    
+    feature_counts = defaultdict(int)
     # write bed files
     for file_type in annotation_table['FileName'].unique():
         # create bed file for labels group
         file_name = f"{request_name}_{seq_name}_{file_type}.bed"
         respond_file = respond_files_path.joinpath(file_name)
-        file = respond_file.open('w', encoding=coding_type)
-        file.write(f'track name={file_type} description="{descriptions}"\n')
+        out_file = respond_file.open('w', encoding=coding_type)
+        out_file.write(f'track name={file_type} description="{descriptions}"\n')
 
         # add path to file in respond dict
         respond_dict['bed'].append(file_name)
@@ -152,21 +223,40 @@ def save_annotations_files(annotation: List[Dict],
         # get labels indices for the file type group
         indexes = list(annotation_table[annotation_table['FileName'] == file_type].index)
         # write info in bed file
-        n = 0
-        for batch_ans in annotation:
-            file_labels = batch_ans['prediction'][:, indexes]
+        #n = 0
 
-            for batch_element in file_labels:
+
+        for batch_ans in annotation:
+            file_labels = batch_ans['prediction'][:, indexes] # [bs, indexes]
+            attributions = batch_ans['attr']
+            queries = batch_ans['queries']
+
+            for be_ind, batch_element in enumerate(file_labels): # each batch element contains labels for each index
+                attr_dt = attributions[be_ind]
+                query = queries[be_ind]
                 for label, feature_index in zip(batch_element, indexes):
-                    start = conf.target_len * n
-                    end = conf.target_len * (n + 1)
+                    #tart = conf.targetilen * n
+                    #nd = conf.target_len * (n + 1)
+                    start = query['pred_start']
+                    end = query['pred_end']
                     if label == 1:
                         feature_name = annotation_table['RecordName'][feature_index]
-                        string = seq_name + delimiter + str(start) + delimiter + str(end) + delimiter + feature_name
-                        file.write(string + '\n')
-                n += 1
+                        feature_counts[feature_name] += 1
+                        feature_name_numbered = f"{feature_name}_{feature_counts[feature_name]}"
+                        print(seq_name, start, end, feature_name_numbered, sep=delimiter, file=out_file)
 
-        file.close()
+                        attr_table = attr_dt[feature_index]
+                        attr_table['name'] = seq_name
+                        attr_table = attr_table[['name', 'start', 'end', 'attr']]
+                        
+                        attr_table_name = f"{request_name}_attributions_{feature_name_numbered}.bedGraph"
+                        attr_table_path = respond_files_path.joinpath(attr_table_name)
+                        with open(attr_table_path, "w") as out:
+                            print(out, f'track name=bedGraph description="{feature_name}"')
+
+                        attr_table.to_csv(attr_table_path, index=False, header=False, sep=delimiter,  mode='a')
+
+        out_file.close()
 
     total_time = time.time() - st_time
     logger.info(f"write gena-deepsea bed files exec time: {total_time:.3f}s")
