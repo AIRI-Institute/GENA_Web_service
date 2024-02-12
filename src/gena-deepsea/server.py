@@ -8,6 +8,8 @@ from flask import Flask, request, jsonify
 from pyfaidx import Faidx
 import zipfile
 import os
+import math
+import json
 
 from service import DeepSeaConf, DeepSeaService, service_folder
 
@@ -180,11 +182,11 @@ def respond():
         try:
             # create request unique name
             request_name = f"request_{date.today()}_{datetime.now().microsecond}"
+            request_id = request.form.get('id')
+            assert request_id, 'Random id parameter required.'
 
             # read data from request
-            if hasattr(request, 'json') and request.json:
-                fasta_content = request.json['dna']
-            elif 'file' in request.files:
+            if 'file' in request.files:
                 file = request.files['file']
                 fasta_content = file.read().decode('UTF-8')
             else:
@@ -199,23 +201,30 @@ def respond():
             respond_dict['bed'] = []
             # todo: убрать заглушку на обработку только одной последовательности в fasta файле, после того договоримся
             #  с фронтом как обрабатывать такие случаи
-            progress_file = os.path.join(respond_files_path, f"{request_name}_progress.txt")
-            
-            with open(progress_file, buffering=1, mode="w") as progress_fd:
-                for sample_name, batches in list(samples_queue.items())[:1]:
-                    cur_entries = 0
-                    total_entries = sum(map(len, batches))
-                    print(sample_name, "cur_entries/total_entries", file=progress_fd, sep="\t")
-                    sample_results = []
-                    for batch in batches:
-                        print(sample_name, f"{cur_entries}/{total_entries}", file=progress_fd)
-                        sample_results.append(instance_class(batch))  # Dicts with list 'seq'
-                        cur_entries += len(batch)
-                        # and 'prediction' vector of batch size
-                    print(sample_name, f"{cur_entries}/{total_entries}", file=progress_fd)
+            progress_file = os.path.join(respond_files_path, f"{request_id}_progress.json")
 
-                respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name,
-                                                      descriptions)
+            for sample_name, batches in list(samples_queue.items())[:1]:
+                cur_entries = 0
+                total_entries = sum(map(len, batches)) - 1
+                # print(sample_name, "cur_entries/total_entries", file=progress_fd, sep="\t")
+                sample_results = []
+                for batch in batches:
+                    # todo: искусственная задержка
+                    time.sleep(3)
+                    progress_fd = open(progress_file, "w")
+                    progress_fd.truncate(0)
+                    progress_fd.write(json.dumps({
+                        "progress": math.ceil(cur_entries / total_entries * 100),
+                        "cur_entries": cur_entries,
+                        "total_entries": total_entries
+                    }))
+                    progress_fd.close()
+
+                    sample_results.append(instance_class(batch))  # Dicts with list 'seq'
+                    cur_entries += len(batch)
+                    # and 'prediction' vector of batch size
+
+            respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name, descriptions)
 
             # Генерируем архив
             archive_file_name = f"{request_name}_archive.zip"
