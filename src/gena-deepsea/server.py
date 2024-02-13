@@ -206,11 +206,8 @@ def respond():
             for sample_name, batches in list(samples_queue.items())[:1]:
                 cur_entries = 0
                 total_entries = sum(map(len, batches)) - 1
-                # print(sample_name, "cur_entries/total_entries", file=progress_fd, sep="\t")
                 sample_results = []
                 for batch in batches:
-                    # todo: искусственная задержка
-                    time.sleep(3)
                     progress_fd = open(progress_file, "w")
                     progress_fd.truncate(0)
                     progress_fd.write(json.dumps({
