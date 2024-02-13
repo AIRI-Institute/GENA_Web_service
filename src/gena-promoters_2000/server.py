@@ -7,6 +7,8 @@ from flask import Flask, request, jsonify
 from pyfaidx import Faidx
 import zipfile
 import os
+import math
+import json
 
 from service import service_folder, PromotersConf, PromotersService
 
@@ -175,6 +177,8 @@ def respond():
         try:
             # create request unique name
             request_name = f"request_{date.today()}_{datetime.now().microsecond}"
+            request_id = request.form.get('id')
+            assert request_id, 'Random id parameter required.'
 
             # read data from request
             if 'file' in request.files:
@@ -192,14 +196,27 @@ def respond():
             respond_dict['bed'] = []
             # todo: убрать заглушку на обработку только одной последовательности в fasta файле, после того договоримся
             #  с фронтом как обрабатывать такие случаи
+            progress_file = os.path.join(respond_files_path, f"{request_id}_progress.json")
+
             for sample_name, batches in list(samples_queue.items())[:1]:
+                cur_entries = 0
+                total_entries = sum(map(len, batches)) - 1
                 sample_results = []
                 for batch in batches:
+                    progress_fd = open(progress_file, "w")
+                    progress_fd.truncate(0)
+                    progress_fd.write(json.dumps({
+                        "progress": math.ceil(cur_entries / total_entries * 100),
+                        "cur_entries": cur_entries,
+                        "total_entries": total_entries
+                    }))
+                    progress_fd.close()
+
                     sample_results.append(instance_class(batch))  # Dicts with list 'seq'
+                    cur_entries += len(batch)
                     # and 'prediction' vector of batch size
 
-                respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name,
-                                                      descriptions)
+            respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name, descriptions)
 
             # Генерируем архив
             archive_file_name = f"{request_name}_archive.zip"
