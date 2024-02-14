@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict]:
+def save_fasta_and_faidx_files(service_request: request, request_id) -> Tuple[str, str, Dict]:
     st_time = time.time()
-    req_path = f"/DNABERT_storage/request_{date.today()}_{datetime.now().microsecond}"
+    req_path = f"/DNABERT_storage/request_{request_id}"
     os.mkdir(req_path)
 
     # read data from request
@@ -74,8 +74,8 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     return dna_seq_names, req_path, counter_for_dna_seq_names
 
 from pathlib import Path
-def get_model_prediction(req_path: str, request_id):
-    progress_file = Path(req_path) / f"{request_id}_progress.json"
+def get_model_prediction(req_path: str):
+    progress_file = Path(req_path) / "progress.json"
     subprocess.run(["python3.9", "run_finetune.py", "--model_type", "dna", "--progress_file", progress_file, "--tokenizer_name=dna6", "--model_name_or_path", "/DNABERT6", "--task_name", "dnaprom", "--do_predict", "--predict_dir", f"{req_path}", "--data_dir",  f"{req_path}", "--max_seq_length", "100", "--per_gpu_pred_batch_size", "32", "--output_dir", "/DNABERT6", "--n_process",  "8"])
 
 
@@ -108,8 +108,8 @@ def respond():
         assert request_id, 'Random id parameter required.'
 
         try:
-            dna_seq_names, req_path, counter_for_dna_seq_names = save_fasta_and_faidx_files(request)
-            get_model_prediction(req_path, request_id)
+            dna_seq_names, req_path, counter_for_dna_seq_names = save_fasta_and_faidx_files(request, request_id)
+            get_model_prediction(req_path)
             bed_dict = save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names)
 
             archive_path = f"{req_path}/archive.zip"
