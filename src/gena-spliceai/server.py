@@ -9,6 +9,7 @@ import numpy as np
 import zipfile
 from transformers import AutoModel, AutoTokenizer, AutoConfig, BigBirdForTokenClassification
 import torch
+import json
 
 from pyfaidx import Faidx
 
