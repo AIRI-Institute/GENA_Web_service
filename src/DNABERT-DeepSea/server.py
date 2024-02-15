@@ -18,22 +18,17 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 import json
 
-def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict]:
+def save_fasta_and_faidx_files(service_request: request, request_id) -> Tuple[str, str, Dict]:
     st_time = time.time()
-    req_path = f"/DNABERT_storage/request_{date.today()}_{datetime.now().microsecond}"
+    req_path = f"/DNABERT_storage/request_{request_id}"
     os.mkdir(req_path)
 
     # read data from request
-    if hasattr(request, 'json') and request.json:
-        json_data = request.json
-        fasta_seq = json_data.get('dna')
-    elif 'file' in request.files:
+    if 'file' in request.files:
         file = request.files['file']
         fasta_seq = file.read().decode('UTF-8')
     else:
         fasta_seq = request.form.get('dna')
-
-
 
     assert fasta_seq, 'Field DNA sequence or file are required'
 
@@ -124,9 +119,11 @@ def save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names) -
 @app.route("/api/dnabert-deepsea/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
+        request_id = request.form.get('id')
+        assert request_id, 'Random id parameter required.'
 
         try: 
-            dna_seq_names, req_path, counter_for_dna_seq_names = save_fasta_and_faidx_files(request)
+            dna_seq_names, req_path, counter_for_dna_seq_names = save_fasta_and_faidx_files(request, request_id)
             get_model_prediction(req_path)
             bed_dict = save_annotations_files(dna_seq_names, req_path, counter_for_dna_seq_names)
 

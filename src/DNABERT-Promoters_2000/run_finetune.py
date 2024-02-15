@@ -20,6 +20,7 @@ import argparse
 import glob
 import json
 import logging
+import math
 import os
 import re
 import shutil
@@ -474,7 +475,7 @@ def evaluate(args, model, tokenizer, prefix="", evaluate=True):
 
 
 
-def predict(args, model, tokenizer, prefix=""):
+def predict(args, model, tokenizer, progress_file, prefix=""):
     # Loop to handle MNLI double evaluation (matched, mis-matched)
     pred_task_names = (args.task_name,)
     pred_outputs_dirs = (args.predict_dir,)
@@ -506,8 +507,21 @@ def predict(args, model, tokenizer, prefix=""):
         nb_pred_steps = 0
         preds = None
         out_label_ids = None
+
+        total_entries = len(pred_dataset)
+        cur_entries = 0
         for batch in tqdm(pred_dataloader, desc="Predicting"):
             model.eval()
+
+            with open(progress_file, "w") as progress_fd:
+                progress_fd.truncate(0)
+                progress_fd.write(json.dumps({
+                        "progress": math.ceil(cur_entries / total_entries * 100),
+                        "cur_entries": cur_entries,
+                        "total_entries": total_entries
+                }))
+
+
             batch = tuple(t.to(args.device) for t in batch)
 
             with torch.no_grad():
@@ -525,6 +539,15 @@ def predict(args, model, tokenizer, prefix=""):
             else:
                 preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
                 out_label_ids = np.append(out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0)
+            cur_entries += batch[0].shape[0]
+
+        with open(progress_file, "w") as progress_fd:
+            progress_fd.truncate(0)
+            progress_fd.write(json.dumps({
+                        "progress": math.ceil(cur_entries / total_entries * 100),
+                        "cur_entries": cur_entries,
+                        "total_entries": total_entries
+            }))
 
         if args.output_mode == "classification":
             if args.task_name[:3] == "dna" and args.task_name != "dnasplice":
@@ -980,6 +1003,7 @@ def main():
     parser.add_argument("--server_ip", type=str, default="", help="For distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="For distant debugging.")
 
+    parser.add_argument("--progress_file", type=str, default="", help="Write model progress")
 
     args = parser.parse_args()
 
@@ -1153,7 +1177,7 @@ def main():
         prefix = ''
         model = model_class.from_pretrained(checkpoint)
         model.to(args.device)
-        prediction = predict(args, model, tokenizer, prefix=prefix)
+        prediction = predict(args, model, tokenizer, prefix=prefix, progress_file=args.progress_file)
 
     # Visualize
     if args.do_visualize and args.local_rank in [-1, 0]:
