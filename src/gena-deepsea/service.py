@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Any
 from captum.attr import LayerIntegratedGradients
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -21,7 +22,7 @@ service_folder = Path(__file__).parent.absolute()
 class DeepSeaConf:
     working_segment = 1000
     segment_step = 200
-    batch_size = 8
+    batch_size = 1
     max_seq_len = 1000
     target_len = 200
     context_len = 400
@@ -100,7 +101,7 @@ class DeepSeaService:
 
         return batch
 
-    def __call__(self, dna_queries: List[Dict]) -> Dict:
+    def __call__(self, dna_queries: List[Dict], temp_storage: Path, calc_importance: bool) -> Dict:
         # preprocessing
         samples = []
         for dna_seq in dna_queries:
@@ -116,8 +117,9 @@ class DeepSeaService:
         predictions = torch.sigmoid(model_out['logits']).detach().numpy()
         labels = np.where(predictions > 0.5, 1, 0)
         
-
-        attributions = self.annotate_predictions(samples, labels, dna_queries)
+        if calc_importance:
+            attributions = self.annotate_predictions(samples, labels, dna_queries, temp_storage)
+            service_response['attr'] = attributions
 
         service_response['prediction'] = labels  # [bs, 919]
         # write tokens
@@ -126,7 +128,6 @@ class DeepSeaService:
         #for batch_element in input_ids:
         #    service_response['seq'].append(self.tokenizer.convert_ids_to_tokens(batch_element,
                                                                                 #skip_special_tokens=True))
-        service_response['attr'] = attributions
         service_response['queries'] = dna_queries
 
 
@@ -145,17 +146,19 @@ class DeepSeaService:
         lig_object = LayerIntegratedGradients(predict_classifier, self.model.bert.embeddings)
         return lig_object
 
-    def annotate_predictions(self, samples, labels, dna_queries):
+    def annotate_predictions(self, samples, labels, dna_queries, temp_storage):
         lig_object = self.create_attr_object()
         attributions = []
         for si, smpl in enumerate(samples):
-            logger.info(f"Processing attributions for sample {si}")
             smpl_attrs = {}
             targets = np.where(labels[si] == 1)[0]
 
             for ti in targets:
+                logger.info(f"Processing target {ti} for sample {si}")
                 attr = self.annotate_sample(lig_object=lig_object, sample=smpl, target=int(ti), query=dna_queries[si])
-                smpl_attrs[ti] = attr
+                temp_path = temp_storage / "attr_sample{si}_target{ti}"
+                attr.to_csv(temp_path, sep="\t", index=False)
+                smpl_attrs[ti] = temp_path
 
             attributions.append(smpl_attrs)
         return attributions
@@ -205,21 +208,6 @@ class DeepSeaService:
                                df['end'] < (cur_pos - query['rpad'])
                               )]
         df['start'] = df['start'] + query['context_start']
-
-        if df.shape[0] == 0:
-            with open("logHI.txt", "a") as out:
-                print(pretokens,
-                        file=out)
-                print(presample['input_ids'],
-                        file=out)
-                print(tokens, 
-                        file=out)
-                print(query['seq'], 
-                        file=out)
-                print(query, file=out)
-                print(pd.DataFrame(bed_like_table), file=out)
-                print(self.tokenizer, file=out)
-                print(presample['input_ids'], file=out)
 
         return df 
 

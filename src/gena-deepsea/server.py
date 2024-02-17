@@ -3,6 +3,7 @@ import time
 from collections import defaultdict
 from datetime import date, datetime
 from typing import Dict, Tuple, List, Sized, Optional
+import gc
 
 import numpy as np 
 import pandas as pd
@@ -12,6 +13,8 @@ import zipfile
 import os
 import math
 import json
+from pathlib import Path
+import shutil
 
 from service import DeepSeaConf, DeepSeaService, service_folder
 
@@ -19,11 +22,8 @@ logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-conf = DeepSeaConf()
-instance_class = DeepSeaService(conf)
 respond_files_path = service_folder.joinpath('data/respond_files/')
 respond_files_path.mkdir(exist_ok=True)
-tokenizer = instance_class.tokenizer
 
 def processing_fasta_name(desc_line: str) -> Tuple[str, str]:
     desc_line = desc_line[1:].strip()
@@ -62,6 +62,7 @@ def slice_sequence(seq: str,
                    context_window: int,
                    pred_window: int,
                    max_tokens: int,
+                   tokenizer,
                    resize_attempts: int = 10) -> list[str]:
     dv, m = divmod(context_window - pred_window, 2)
     stepL = dv
@@ -145,7 +146,7 @@ def form_batches(seqs: list[str], batch_size: int):
     return batches
 
 
-def save_fasta_and_faidx_files(fasta_content: str, request_name: str) -> Tuple:
+def save_fasta_and_faidx_files(fasta_content: str, request_name: str, service: DeepSeaService) -> Tuple:
     faidx_time = time.time()
 
     respond_dict = {}
@@ -167,10 +168,11 @@ def save_fasta_and_faidx_files(fasta_content: str, request_name: str) -> Tuple:
         # splice dna sequence to necessary pieces
         samples_queue[sample_name] = form_batches(
                 slice_sequence(dna_seq, 
-                    context_window=conf.working_segment,
-                    pred_window=conf.segment_step,
-                    max_tokens=conf.max_tokens),
-                batch_size=conf.batch_size)
+                    context_window=service.conf.working_segment,
+                    pred_window=service.conf.segment_step,
+                    max_tokens=service.conf.max_tokens,
+                    tokenizer=service.tokenizer),
+                batch_size=service.conf.batch_size)
 
         total_time = time.time() - st_time
         logger.info(f"write {sample_name} fasta file exec time: {total_time:.3f}s")
@@ -200,6 +202,7 @@ def only_N(tok):
 def save_annotations_files(annotation: List[Dict],
                            seq_name: str,
                            respond_dict: Dict,
+                           feature_counts: Dict[str, int],
                            request_name: str,
                            descriptions: str,
                            coding_type: str = 'utf-8',
@@ -210,13 +213,14 @@ def save_annotations_files(annotation: List[Dict],
     annotation_table = pd.read_csv(service_folder.joinpath('data/checkpoints/annotation_table.csv'),
                                    index_col='targetID')
     
-    feature_counts = defaultdict(int)
+    #feature_counts = defaultdict(int)
     # write bed files
     for file_type in annotation_table['FileName'].unique():
         # create bed file for labels group
         file_name = f"{request_name}_{seq_name}_{file_type}.bed"
         respond_file = respond_files_path.joinpath(file_name)
-        out_file = respond_file.open('w', encoding=coding_type)
+        
+        out_file = respond_file.open('a', encoding=coding_type)
         out_file.write(f'track name={file_type} description="{descriptions}"\n')
 
         # add path to file in respond dict
@@ -230,15 +234,14 @@ def save_annotations_files(annotation: List[Dict],
 
         for batch_ans in annotation:
             file_labels = batch_ans['prediction'][:, indexes] # [bs, indexes]
-            attributions = batch_ans['attr']
+            
+            attributions = batch_ans.get('attr')
             queries = batch_ans['queries']
 
             for be_ind, batch_element in enumerate(file_labels): # each batch element contains labels for each index
-                attr_dt = attributions[be_ind]
+                attr_dt = attributions[be_ind] if attributions is not None else None 
                 query = queries[be_ind]
                 for label, feature_index in zip(batch_element, indexes):
-                    #tart = conf.targetilen * n
-                    #nd = conf.target_len * (n + 1)
                     start = query['pred_start']
                     end = query['pred_end']
                     if label == 1:
@@ -247,29 +250,35 @@ def save_annotations_files(annotation: List[Dict],
                         feature_name_numbered = f"{feature_name}_{feature_counts[feature_name]}"
                         print(seq_name, start, end, feature_name_numbered, sep=delimiter, file=out_file)
 
-                        attr_table = attr_dt[feature_index]
-                        attr_table['name'] = seq_name
-                        attr_table = attr_table[['name', 'start', 'end', 'attr']]
-                        
-                        attr_table_name = f"{request_name}_attributions_{feature_name_numbered}.bedGraph"
-                        attr_table_path = respond_files_path.joinpath(attr_table_name)
-                        with open(attr_table_path, "w") as out:
-                            print(out, f'track name=bedGraph description="{feature_name}"')
+                        if attr_dt is not None:
 
-                        attr_table.to_csv(attr_table_path, index=False, header=False, sep=delimiter,  mode='a')
+                            attr_table = pd.read_table(attr_dt[feature_index])
+                            attr_table['name'] = seq_name
+                            attr_table = attr_table[['name', 'start', 'end', 'attr']]
+                        
+                            attr_table_name = f"{request_name}_attributions_{feature_name_numbered}.bedGraph"
+                            attr_table_path = respond_files_path.joinpath(attr_table_name)
+                            #with open(attr_table_path, "w") as out: # written only once, no need for append mode
+                            #   print(out, f'track name=bedGraph description="{feature_name}"')
+
+                            attr_table.to_csv(attr_table_path, index=False, header=False, sep=delimiter,  mode='a')
 
         out_file.close()
 
     total_time = time.time() - st_time
     logger.info(f"write gena-deepsea bed files exec time: {total_time:.3f}s")
 
-    return respond_dict
+    return respond_dict, feature_counts
 
+import threading
+sem = threading.Semaphore()
 
 @app.route("/api/gena-deepsea/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
         try:
+            calc_importance = request.form.get('importance') == 'true'
+            calc_importance = True
             # create request unique name
             request_name = f"request_{date.today()}_{datetime.now().microsecond}"
             request_id = request.form.get('id')
@@ -284,19 +293,27 @@ def respond():
 
             assert fasta_content, 'Field DNA sequence or file are required.'
 
-            # get queue of dna samples from fasta file
-            samples_queue, respond_dict, descriptions = save_fasta_and_faidx_files(fasta_content, request_name)
+            sem.acquire()
+            conf = DeepSeaConf()
+            service = DeepSeaService(conf)
+
+            samples_queue, respond_dict, descriptions = save_fasta_and_faidx_files(fasta_content, request_name, service)
 
             # run model on inputs sequences
             respond_dict['bed'] = []
             # todo: убрать заглушку на обработку только одной последовательности в fasta файле, после того договоримся
             #  с фронтом как обрабатывать такие случаи
             progress_file = os.path.join(respond_files_path, f"{request_id}_progress.json")
+            temp_storage_dir = Path(respond_files_path) / f"{request_id}_storage"
+            temp_storage_dir.mkdir(exist_ok=True, parents=True)
+            #logger.info(f"{samples_queue}")
+            
+            feature_counts = defaultdict(int)
 
             for sample_name, batches in list(samples_queue.items())[:1]:
                 cur_entries = 0
-                total_entries = sum(map(len, batches)) - 1
-                sample_results = []
+                total_entries = sum(map(len, batches))
+                #sample_results = []
                 for batch in batches:
                     progress_fd = open(progress_file, "w")
                     progress_fd.truncate(0)
@@ -307,12 +324,29 @@ def respond():
                     }))
                     progress_fd.close()
 
-                    sample_results.append(instance_class(batch))  # Dicts with list 'seq'
+                    #sample_results.append(service(batch))  # Dicts with list 'seq'
+                    
+                    answer = service(batch, temp_storage_dir, calc_importance)
+                    respond_dict['bed'] = [] # temporary fix
+                    respond_dict, feature_counts = save_annotations_files(annotation=[answer], # temp fix
+                                                            seq_name=sample_name,
+                                                            respond_dict=respond_dict,
+                                                            feature_counts=feature_counts,
+                                                            request_name=request_name,
+                                                            descriptions=descriptions)
+
+                    del answer 
+                    gc.collect()
+
+
+
                     cur_entries += len(batch)
-                    # and 'prediction' vector of batch size
 
-            respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name, descriptions)
-
+            sem.release()
+            del service
+            shutil.rmtree(temp_storage_dir)
+            #respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name, descriptions)
+            
             # Генерируем архив
             archive_file_name = f"{request_name}_archive.zip"
             with zipfile.ZipFile(f"{respond_files_path}/{archive_file_name}", mode="w") as archive:
@@ -330,7 +364,7 @@ def respond():
                 "archive": f"{common_path}{archive_file_name}"
             }
             for bed_file_path in respond_dict['bed']:
-               result['bed'].append(f"{common_path}{bed_file_path}")
+                result['bed'].append(f"{common_path}{bed_file_path}")
 
             return jsonify(result)
         except AssertionError as e:
@@ -338,4 +372,4 @@ def respond():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=3000)
+    app.run(debug=True, host="0.0.0.0", port=3000, threaded=True) 
