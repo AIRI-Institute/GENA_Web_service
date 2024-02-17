@@ -278,7 +278,6 @@ def respond():
     if request.method == 'POST':
         try:
             calc_importance = request.form.get('importance') == 'true'
-            calc_importance = True
             # create request unique name
             request_name = f"request_{date.today()}_{datetime.now().microsecond}"
             request_id = request.form.get('id')
