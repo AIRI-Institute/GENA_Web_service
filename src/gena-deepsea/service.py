@@ -156,7 +156,7 @@ class DeepSeaService:
             for ti in targets:
                 logger.info(f"Processing target {ti} for sample {si}")
                 attr = self.annotate_sample(lig_object=lig_object, sample=smpl, target=int(ti), query=dna_queries[si])
-                temp_path = temp_storage / "attr_sample{si}_target{ti}"
+                temp_path = temp_storage / f"attr_sample{si}_target{ti}"
                 attr.to_csv(temp_path, sep="\t", index=False)
                 smpl_attrs[ti] = temp_path
 
