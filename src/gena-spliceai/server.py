@@ -97,7 +97,7 @@ def get_model_prediction(all_tokenized_sequences, req_path, request_id):
     cur_entries = 0
     total_entries = len(all_tokenized_sequences)
 
-    for k in range(len(all_tokenized_sequences)):
+    for k in range(len(tokenized_sequences_for_one_seq_name)):
 
         with open(progress_file, "w") as progress_fd:
             progress_fd.truncate(0)
