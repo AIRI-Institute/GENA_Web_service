@@ -114,15 +114,16 @@ def get_model_prediction(all_tokenized_sequences, req_path, request_id):
             # print(predictions.shape)
             all_preds_acceptors[-1] += list(predictions[:, 1].detach().cpu().numpy().squeeze())
             all_preds_donors[-1] += list(predictions[:, 2].detach().cpu().numpy().squeeze())
-        cur_entries += 1
+            
+            cur_entries += 1
 
-    with open(progress_file, "w") as progress_fd:
-        progress_fd.truncate(0)
-        progress_fd.write(json.dumps({
-                "progress": math.ceil(cur_entries / total_entries * 100),
-                "cur_entries": cur_entries,
-                "total_entries": total_entries
-        }))
+            with open(progress_file, "w") as progress_fd:
+                progress_fd.truncate(0)
+                progress_fd.write(json.dumps({
+                        "progress": math.ceil(cur_entries / total_entries * 100),
+                        "cur_entries": cur_entries,
+                        "total_entries": total_entries
+                }))
 
     # print(all_preds_donors, flush=True)
 
