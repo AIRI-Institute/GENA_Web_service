@@ -95,17 +95,10 @@ def get_model_prediction(all_tokenized_sequences, req_path, request_id):
 
     progress_file = f"data/respond_files/{request_id}_progress.json"
     cur_entries = 0
-    total_entries = len(all_tokenized_sequences)
+    total_entries = len(tokenized_sequences_for_one_seq_name) * len(all_tokenized_sequences)
 
-    for k in range(len(tokenized_sequences_for_one_seq_name)):
+    for k in range(len(all_tokenized_sequences)):
 
-        with open(progress_file, "w") as progress_fd:
-            progress_fd.truncate(0)
-            progress_fd.write(json.dumps({
-                    "progress": math.ceil(cur_entries / total_entries * 100),
-                    "cur_entries": cur_entries,
-                    "total_entries": total_entries
-            }))
         all_preds_donors.append([])
         all_preds_acceptors.append([])
         tokenized_sequences_for_one_seq_name = all_tokenized_sequences[k]
