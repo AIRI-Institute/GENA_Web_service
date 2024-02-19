@@ -95,7 +95,9 @@ def get_model_prediction(all_tokenized_sequences, req_path, request_id):
 
     progress_file = f"data/respond_files/{request_id}_progress.json"
     cur_entries = 0
-    total_entries = len(tokenized_sequences_for_one_seq_name) * len(all_tokenized_sequences)
+    total_entries = 0
+    for k in range(len(all_tokenized_sequences)):
+        total_entries += len(all_tokenized_sequences[k])
 
     for k in range(len(all_tokenized_sequences)):
 
