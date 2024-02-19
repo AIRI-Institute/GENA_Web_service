@@ -178,6 +178,10 @@ def save_annotations_files(dna_seq_names, req_path, all_preds_acceptors, all_pre
     return bed_dict
 
 
+import threading
+sem = threading.Semaphore()
+
+
 @app.route("/api/gena-spliceai/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
@@ -185,9 +189,12 @@ def respond():
         assert request_id, 'Random id parameter required.'
 
         try:
+            sem.acquire()
             dna_seq_names, req_path, all_tokenized_sequences, tokenizer = save_fasta_and_faidx_files(request)
             all_preds_acceptors, all_preds_donors = get_model_prediction(all_tokenized_sequences, req_path, request_id)
             bed_dict = save_annotations_files(dna_seq_names, req_path, all_preds_acceptors, all_preds_donors, all_tokenized_sequences, tokenizer)
+
+            sem.release()
 
             archive_path = f"{req_path}archive.zip" # need / before archive...
             with zipfile.ZipFile(archive_path, mode="w") as archive:
