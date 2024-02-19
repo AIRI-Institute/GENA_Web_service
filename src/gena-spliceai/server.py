@@ -4,10 +4,12 @@ import logging
 import time
 from datetime import date, datetime
 from typing import Dict, Tuple
+import math
 import numpy as np
 import zipfile
 from transformers import AutoModel, AutoTokenizer, AutoConfig, BigBirdForTokenClassification
 import torch
+import json
 
 from pyfaidx import Faidx
 
@@ -77,7 +79,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
     return dna_seq_names, req_path, all_tokenized_sequences, tokenizer
 
 
-def get_model_prediction(all_tokenized_sequences):
+def get_model_prediction(all_tokenized_sequences, req_path, request_id):
     # print('ok1', flush=True)
     model_cfg = AutoConfig.from_pretrained('data/configs/hf_bigbird_L12-H768-A12-V32k-L4096.json', num_labels=3)
     # print('ok2', flush=True)
@@ -91,7 +93,19 @@ def get_model_prediction(all_tokenized_sequences):
     all_preds_donors = []
     all_preds_acceptors = []
 
+    progress_file = f"data/respond_files/{request_id}_progress.json"
+    cur_entries = 0
+    total_entries = len(all_tokenized_sequences)
+
     for k in range(len(all_tokenized_sequences)):
+
+        with open(progress_file, "w") as progress_fd:
+            progress_fd.truncate(0)
+            progress_fd.write(json.dumps({
+                    "progress": math.ceil(cur_entries / total_entries * 100),
+                    "cur_entries": cur_entries,
+                    "total_entries": total_entries
+            }))
         all_preds_donors.append([])
         all_preds_acceptors.append([])
         tokenized_sequences_for_one_seq_name = all_tokenized_sequences[k]
@@ -100,6 +114,15 @@ def get_model_prediction(all_tokenized_sequences):
             # print(predictions.shape)
             all_preds_acceptors[-1] += list(predictions[:, 1].detach().cpu().numpy().squeeze())
             all_preds_donors[-1] += list(predictions[:, 2].detach().cpu().numpy().squeeze())
+        cur_entries += 1
+
+    with open(progress_file, "w") as progress_fd:
+        progress_fd.truncate(0)
+        progress_fd.write(json.dumps({
+                "progress": math.ceil(cur_entries / total_entries * 100),
+                "cur_entries": cur_entries,
+                "total_entries": total_entries
+        }))
 
     # print(all_preds_donors, flush=True)
 
@@ -155,14 +178,23 @@ def save_annotations_files(dna_seq_names, req_path, all_preds_acceptors, all_pre
     return bed_dict
 
 
+import threading
+sem = threading.Semaphore()
+
+
 @app.route("/api/gena-spliceai/upload", methods=["POST"])
 def respond():
     if request.method == 'POST':
+        request_id = request.form.get('id')
+        assert request_id, 'Random id parameter required.'
 
         try:
+            sem.acquire()
             dna_seq_names, req_path, all_tokenized_sequences, tokenizer = save_fasta_and_faidx_files(request)
-            all_preds_acceptors, all_preds_donors = get_model_prediction(all_tokenized_sequences)
+            all_preds_acceptors, all_preds_donors = get_model_prediction(all_tokenized_sequences, req_path, request_id)
             bed_dict = save_annotations_files(dna_seq_names, req_path, all_preds_acceptors, all_preds_donors, all_tokenized_sequences, tokenizer)
+
+            sem.release()
 
             archive_path = f"{req_path}archive.zip" # need / before archive...
             with zipfile.ZipFile(archive_path, mode="w") as archive:
