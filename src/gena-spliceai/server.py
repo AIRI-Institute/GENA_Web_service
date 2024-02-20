@@ -99,26 +99,27 @@ def get_model_prediction(all_tokenized_sequences, req_path, request_id):
     for k in range(len(all_tokenized_sequences)):
         total_entries += len(all_tokenized_sequences[k])
 
-    for k in range(len(all_tokenized_sequences)):
+    with torch.no_grad():
+        for k in range(len(all_tokenized_sequences)):
 
-        all_preds_donors.append([])
-        all_preds_acceptors.append([])
-        tokenized_sequences_for_one_seq_name = all_tokenized_sequences[k]
-        for i in range(len(tokenized_sequences_for_one_seq_name)):
-            predictions = torch.sigmoid(model(**tokenized_sequences_for_one_seq_name[i])["logits"]).squeeze()
-            # print(predictions.shape)
-            all_preds_acceptors[-1] += list(predictions[:, 1].detach().cpu().numpy().squeeze())
-            all_preds_donors[-1] += list(predictions[:, 2].detach().cpu().numpy().squeeze())
-            
-            cur_entries += 1
+            all_preds_donors.append([])
+            all_preds_acceptors.append([])
+            tokenized_sequences_for_one_seq_name = all_tokenized_sequences[k]
+            for i in range(len(tokenized_sequences_for_one_seq_name)):
+                predictions = torch.sigmoid(model(**tokenized_sequences_for_one_seq_name[i])["logits"]).squeeze()
+                # print(predictions.shape)
+                all_preds_acceptors[-1] += list(predictions[:, 1].detach().cpu().numpy().squeeze())
+                all_preds_donors[-1] += list(predictions[:, 2].detach().cpu().numpy().squeeze())
+                
+                cur_entries += 1
 
-            with open(progress_file, "w") as progress_fd:
-                progress_fd.truncate(0)
-                progress_fd.write(json.dumps({
-                        "progress": math.ceil(cur_entries / total_entries * 100),
-                        "cur_entries": cur_entries,
-                        "total_entries": total_entries
-                }))
+                with open(progress_file, "w") as progress_fd:
+                    progress_fd.truncate(0)
+                    progress_fd.write(json.dumps({
+                            "progress": math.ceil(cur_entries / total_entries * 100),
+                            "cur_entries": cur_entries,
+                            "total_entries": total_entries
+                    }))
 
     # print(all_preds_donors, flush=True)
 
