@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 respond_files_path = service_folder.joinpath('data/respond_files/')
 respond_files_path.mkdir(exist_ok=True)
+MAX_REQUESTS=5 
 
 def processing_fasta_name(desc_line: str) -> Tuple[str, str]:
     desc_line = desc_line[1:].strip()
@@ -271,7 +272,7 @@ def save_annotations_files(annotation: List[Dict],
     return respond_dict, feature_counts
 
 import threading
-sem = threading.Semaphore()
+sem = threading.Semaphore(value=MAX_REQUESTS)
 
 @app.route("/api/gena-deepsea/upload", methods=["POST"])
 def respond():
@@ -292,56 +293,54 @@ def respond():
 
             assert fasta_content, 'Field DNA sequence or file are required.'
 
-            sem.acquire()
-            conf = DeepSeaConf()
-            service = DeepSeaService(conf)
+            with sem:
+                conf = DeepSeaConf()
+                service = DeepSeaService(conf)
 
-            samples_queue, respond_dict, descriptions = save_fasta_and_faidx_files(fasta_content, request_name, service)
+                samples_queue, respond_dict, descriptions = save_fasta_and_faidx_files(fasta_content, request_name, service)
 
-            # run model on inputs sequences
-            respond_dict['bed'] = []
-            # todo: убрать заглушку на обработку только одной последовательности в fasta файле, после того договоримся
-            #  с фронтом как обрабатывать такие случаи
-            progress_file = os.path.join(respond_files_path, f"{request_id}_progress.json")
-            temp_storage_dir = Path(respond_files_path) / f"{request_id}_storage"
-            temp_storage_dir.mkdir(exist_ok=True, parents=True)
-            #logger.info(f"{samples_queue}")
-            
-            feature_counts = defaultdict(int)
+                # run model on inputs sequences
+                respond_dict['bed'] = []
+                # todo: убрать заглушку на обработку только одной последовательности в fasta файле, после того договоримся
+                #  с фронтом как обрабатывать такие случаи
+                progress_file = os.path.join(respond_files_path, f"{request_id}_progress.json")
+                temp_storage_dir = Path(respond_files_path) / f"{request_id}_storage"
+                temp_storage_dir.mkdir(exist_ok=True, parents=True)
+                #logger.info(f"{samples_queue}")
+                
+                feature_counts = defaultdict(int)
 
-            for sample_name, batches in list(samples_queue.items())[:1]:
-                cur_entries = 0
-                total_entries = sum(map(len, batches))
-                #sample_results = []
-                for batch in batches:
-                    progress_fd = open(progress_file, "w")
-                    progress_fd.truncate(0)
-                    progress_fd.write(json.dumps({
-                        "progress": math.ceil(cur_entries / total_entries * 100),
-                        "cur_entries": cur_entries,
-                        "total_entries": total_entries
-                    }))
-                    progress_fd.close()
+                for sample_name, batches in list(samples_queue.items())[:1]:
+                    cur_entries = 0
+                    total_entries = sum(map(len, batches))
+                    #sample_results = []
+                    for batch in batches:
+                        progress_fd = open(progress_file, "w")
+                        progress_fd.truncate(0)
+                        progress_fd.write(json.dumps({
+                            "progress": math.ceil(cur_entries / total_entries * 100),
+                            "cur_entries": cur_entries,
+                            "total_entries": total_entries
+                        }))
+                        progress_fd.close()
 
-                    #sample_results.append(service(batch))  # Dicts with list 'seq'
-                    
-                    answer = service(batch, temp_storage_dir, calc_importance)
-                    respond_dict['bed'] = [] # temporary fix
-                    respond_dict, feature_counts = save_annotations_files(annotation=[answer], # temp fix
-                                                            seq_name=sample_name,
-                                                            respond_dict=respond_dict,
-                                                            feature_counts=feature_counts,
-                                                            request_name=request_name,
-                                                            descriptions=descriptions)
+                        #sample_results.append(service(batch))  # Dicts with list 'seq'
+                        
+                        answer = service(batch, temp_storage_dir, calc_importance)
+                        respond_dict['bed'] = [] # temporary fix
+                        respond_dict, feature_counts = save_annotations_files(annotation=[answer], # temp fix
+                                                                seq_name=sample_name,
+                                                                respond_dict=respond_dict,
+                                                                feature_counts=feature_counts,
+                                                                request_name=request_name,
+                                                                descriptions=descriptions)
 
-                    del answer 
-                    gc.collect()
+                        del answer 
+                        gc.collect()
 
 
 
-                    cur_entries += len(batch)
-
-            sem.release()
+                        cur_entries += len(batch)
             del service
             shutil.rmtree(temp_storage_dir)
             #respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name, descriptions)
