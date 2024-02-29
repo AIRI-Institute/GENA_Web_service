@@ -114,7 +114,6 @@ class PromotersService:
         batch = self.create_batch(samples)
         with torch.inference_mode():
             model_out = self.model(**{k: batch[k] for k in batch if k in self.model_forward_args})
-
         # postprocessing
         service_response = dict()
         # write predictions

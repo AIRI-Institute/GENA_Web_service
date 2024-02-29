@@ -13,9 +13,13 @@ from pathlib import Path
 import shutil 
 import pandas as pd
 import gc 
+from Bio import SeqIO
+import io 
+import textwrap
 
 from service import service_folder, PromotersConf, PromotersService
 
+FASTA_CHARS_FOR_LINE = 100
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -25,35 +29,28 @@ respond_files_path = service_folder.joinpath('data/respond_files/')
 respond_files_path.mkdir(exist_ok=True)
 
 
-def processing_fasta_name(desc_line: str) -> Tuple[str, str]:
-    desc_line = desc_line[1:].strip()
-    names = desc_line.split(' ')
-    sample_name = names[0]
-    if ':' in sample_name:
-        seq_names = sample_name.split(':')
-        sample_name = seq_names[0]
-        description = seq_names[1]
-    else:
-        description = ' '.join(names[1:]).strip()
-
-    return sample_name, description
-
-
 def processing_fasta_file(content: str) -> Tuple:
+    handle =  io.StringIO(content)
+
+    records = SeqIO.parse(handle, format="fasta")
+
     file_queue = {}
     samples_content = {}
     sample_name = 'error'
     description = ''
-    for line in content.splitlines():
-        if line.startswith('>'):
-            sample_name, description = processing_fasta_name(line)
-            file_queue[sample_name] = ''
-            samples_content[sample_name] = f">{sample_name} {description}\n"
-        elif len(line) == 0:
-            sample_name = 'error'
+
+    for rec in records:
+        sample_name = rec.name
+        description = rec.description
+        seq = str(rec.seq)
+        file_queue[sample_name] = seq
+
+        formatted_seq = "\n".join(textwrap.wrap(seq, width=FASTA_CHARS_FOR_LINE)) 
+        if description:
+            fileoneline = f">{sample_name} {description}\n{formatted_seq}\n"
         else:
-            file_queue[sample_name] += line
-            samples_content[sample_name] += line + '\n'
+            fileoneline = f">{sample_name}\n{formatted_seq}\n"
+        samples_content[sample_name] = fileoneline
 
     return file_queue, samples_content, description
 
@@ -67,7 +64,6 @@ def slice_sequence(seq: str,
     stepL = dv
     stepR = dv + m
 
-    initial_len = len(seq)
     slices = []
 
     for pred_start in range(0, len(seq), pred_window):
