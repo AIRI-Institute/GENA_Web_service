@@ -221,50 +221,50 @@ def save_annotations_files(annotation: List[Dict],
         file_name = f"{request_name}_{seq_name}_{file_type}.bed"
         respond_file = respond_files_path.joinpath(file_name)
         
-        out_file = respond_file.open('a', encoding=coding_type)
-        out_file.write(f'track name={file_type} description="{descriptions}"\n')
+        if not respond_file.exists():
+            with respond_file.open("w",  encoding=coding_type) as promoters_file:
+                print(f'track name=promoters description="{descriptions}"', file=promoters_file)
 
-        # add path to file in respond dict
-        respond_dict['bed'].append(file_name)
+        with  respond_file.open('a', encoding=coding_type) as out_file :
+            # add path to file in respond dict
+            respond_dict['bed'].append(file_name)
 
-        # get labels indices for the file type group
-        indexes = list(annotation_table[annotation_table['FileName'] == file_type].index)
-        # write info in bed file
-        #n = 0
+            # get labels indices for the file type group
+            indexes = list(annotation_table[annotation_table['FileName'] == file_type].index)
+            # write info in bed file
+            #n = 0
 
 
-        for batch_ans in annotation:
-            file_labels = batch_ans['prediction'][:, indexes] # [bs, indexes]
-            
-            attributions = batch_ans.get('attr')
-            queries = batch_ans['queries']
+            for batch_ans in annotation:
+                file_labels = batch_ans['prediction'][:, indexes] # [bs, indexes]
+                
+                attributions = batch_ans.get('attr')
+                queries = batch_ans['queries']
 
-            for be_ind, batch_element in enumerate(file_labels): # each batch element contains labels for each index
-                attr_dt = attributions[be_ind] if attributions is not None else None 
-                query = queries[be_ind]
-                for label, feature_index in zip(batch_element, indexes):
-                    start = query['pred_start']
-                    end = query['pred_end']
-                    if label == 1:
-                        feature_name = annotation_table['RecordName'][feature_index]
-                        feature_counts[feature_name] += 1
-                        feature_name_numbered = f"{feature_name}_{feature_counts[feature_name]}"
-                        print(seq_name, start, end, feature_name_numbered, sep=delimiter, file=out_file)
+                for be_ind, batch_element in enumerate(file_labels): # each batch element contains labels for each index
+                    attr_dt = attributions[be_ind] if attributions is not None else None 
+                    query = queries[be_ind]
+                    for label, feature_index in zip(batch_element, indexes):
+                        start = query['pred_start']
+                        end = query['pred_end']
+                        if label == 1:
+                            feature_name = annotation_table['RecordName'][feature_index]
+                            feature_counts[feature_name] += 1
+                            feature_name_numbered = f"{feature_name}_{feature_counts[feature_name]}"
+                            print(seq_name, start, end, feature_name_numbered, sep=delimiter, file=out_file)
 
-                        if attr_dt is not None:
+                            if attr_dt is not None:
 
-                            attr_table = pd.read_table(attr_dt[feature_index])
-                            attr_table['name'] = seq_name
-                            attr_table = attr_table[['name', 'start', 'end', 'attr']]
-                        
-                            attr_table_name = f"{request_name}_attributions_{feature_name_numbered}.bedGraph"
-                            attr_table_path = respond_files_path.joinpath(attr_table_name)
-                            #with open(attr_table_path, "w") as out: # written only once, no need for append mode
-                            #   print(out, f'track name=bedGraph description="{feature_name}"')
+                                attr_table = pd.read_table(attr_dt[feature_index])
+                                attr_table['name'] = seq_name
+                                attr_table = attr_table[['name', 'start', 'end', 'attr']]
+                            
+                                attr_table_name = f"{request_name}_attributions_{feature_name_numbered}.bedGraph"
+                                attr_table_path = respond_files_path.joinpath(attr_table_name)
+                                #with open(attr_table_path, "w") as out: # written only once, no need for append mode
+                                #   print(out, f'track name=bedGraph description="{feature_name}"')
 
-                            attr_table.to_csv(attr_table_path, index=False, header=False, sep=delimiter,  mode='a')
-
-        out_file.close()
+                                attr_table.to_csv(attr_table_path, index=False, header=False, sep=delimiter)
 
     total_time = time.time() - st_time
     logger.info(f"write gena-deepsea bed files exec time: {total_time:.3f}s")
@@ -339,9 +339,8 @@ def respond():
                         gc.collect()
 
 
-
                         cur_entries += len(batch)
-            del service
+                del service
             shutil.rmtree(temp_storage_dir)
             #respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name, descriptions)
             

@@ -2,12 +2,12 @@ import inspect
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Any
-from captum.attr import LayerIntegratedGradients
+from captum.attr import LayerIntegratedGradients # type: ignore
 from pathlib import Path
 
 import numpy as np
 import torch
-from transformers import AutoConfig, AutoTokenizer
+from transformers import AutoConfig, AutoTokenizer # type: ignore
 import pandas as pd
 
 from gena_lm.utils import get_cls_by_name
@@ -205,9 +205,10 @@ class DeepSeaService:
         df = pd.DataFrame(bed_like_table)
        
         df = df[np.logical_and(df['start'] >= query['lpad'],
-                               df['end'] < (cur_pos - query['rpad'])
+                               df['end'] <= (cur_pos - query['rpad'])
                               )]
         df['start'] = df['start'] + query['context_start']
+        df['end'] = df['end'] + query['context_start']
 
         return df 
 
