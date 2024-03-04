@@ -66,7 +66,6 @@ def slice_sequence(seq: str,
     stepL = dv
     stepR = dv + m
 
-    initial_len = len(seq)
     slices = []
 
     for pred_start in range(0, len(seq), pred_window):

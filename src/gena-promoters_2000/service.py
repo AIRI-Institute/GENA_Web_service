@@ -104,7 +104,7 @@ class PromotersService:
 
         return batch
 
-    def __call__(self, queries: List[str], temp_storage: Path, calc_importance: bool) -> Dict:
+    def __call__(self, queries, temp_storage: Path, calc_importance: bool) -> Dict:
         # preprocessing
         samples = []
         for query in queries:

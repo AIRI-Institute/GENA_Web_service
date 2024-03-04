@@ -269,7 +269,7 @@ def respond():
                 fasta_content = file.read().decode('UTF-8')
             else:
                 fasta_content = request.form.get('dna')
-            
+            assert fasta_content, 'Field DNA sequence or file are required.'
             # for debug
             #fasta_content = request.json['dna']
             #assert fasta_content, 'Field DNA sequence or file are required.'
