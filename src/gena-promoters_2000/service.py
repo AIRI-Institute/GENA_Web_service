@@ -185,8 +185,7 @@ class PromotersService:
 
         bed_like_table = {'tok_pos': [], 'token': [], 'attr': [], 'start': [], 'end': []}
         
-        pretokens = self.tokenizer.convert_ids_to_tokens(presample['input_ids'], skip_special_tokens=False)
-        tokens = pretokens
+        tokens = self.tokenizer.convert_ids_to_tokens(presample['input_ids'], skip_special_tokens=False)
 
         startends = token_positions(presample)
         
@@ -198,7 +197,6 @@ class PromotersService:
             bed_like_table['tok_pos'].append(i)
             bed_like_table['token'].append(tok)
             bed_like_table['attr'].append(attr)
-           
             bed_like_table['start'].append(start)
             bed_like_table['end'].append(end)
 
