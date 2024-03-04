@@ -17,6 +17,16 @@ logger = logging.getLogger(__name__)
 
 service_folder = Path(__file__).parent.absolute()
 
+def token_positions(seq_tok):
+    if len(seq_tok._encodings) != 1:
+        raise Exception("Unexpected number of encodings")
+    
+    prev_e = 0
+    ind2pos = []
+    for ind, (_, e) in enumerate(seq_tok._encodings[0].offsets):
+        ind2pos.append( (prev_e, e))
+        prev_e = e
+    return ind2pos
 
 @dataclass
 class DeepSeaConf:
@@ -28,7 +38,7 @@ class DeepSeaConf:
     context_len = 400
     max_tokens = 512
     num_labels = 919
-    tokenizer = service_folder.joinpath('data/tokenizers/human/BPE_32k/')
+    tokenizer = service_folder.joinpath('data/tokenizers/t2t_1000h_multi_32k/')
     model_cls = 'gena_lm.modeling_bert:BertForSequenceClassification'
     model_cfg = service_folder.joinpath('data/configs/L12-H768-A12-V32k-preln.json')
     checkpoint_path = service_folder.joinpath('data/checkpoints/model_best.pth')
@@ -58,15 +68,6 @@ class DeepSeaService:
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.eval()
         self.model_forward_args = set(inspect.getfullargspec(self.model.forward).args)
-
-    @staticmethod
-    def dna_string_padding(seq: str, length: int):
-        pad_len = (length - len(seq)) // 2
-        seq = ('N' * pad_len) + seq + ('N' * pad_len)
-        if len(seq) < length:
-            seq += 'N' * (length - len(seq))
-
-        return seq
 
     def preprocess(self, dna_seq: str):
         features = self.tokenizer(dna_seq,
@@ -122,14 +123,7 @@ class DeepSeaService:
             service_response['attr'] = attributions
 
         service_response['prediction'] = labels  # [bs, 919]
-        # write tokens
-        #service_response['seq'] = []
-        #input_ids = batch['input_ids'].detach().numpy()
-        #for batch_element in input_ids:
-        #    service_response['seq'].append(self.tokenizer.convert_ids_to_tokens(batch_element,
-                                                                                #skip_special_tokens=True))
         service_response['queries'] = dna_queries
-
 
         return service_response
 
@@ -184,31 +178,30 @@ class DeepSeaService:
         bed_like_table = {'tok_pos': [], 'token': [], 'attr': [], 'start': [], 'end': []}
         
 
-        pretokens = self.tokenizer.convert_ids_to_tokens(presample['input_ids'], skip_special_tokens=False)
-        tokens = pretokens[1:-1]
-
-
-        cur_pos = 0
+        tokens = self.tokenizer.convert_ids_to_tokens(presample['input_ids'],
+                                                         skip_special_tokens=False)
+        startends = token_positions(presample)
+        
         for i, tok in enumerate(tokens):
+            start, end = startends[i]
+            if start >= end:
+                continue # special token 
             attr = attributions[i].item()
             bed_like_table['tok_pos'].append(i)
             bed_like_table['token'].append(tok)
             bed_like_table['attr'].append(attr)
-            bed_like_table['start'].append(cur_pos)
-            if tok == '[UNK]':
-                cur_pos += 1
-            else:
-                cur_pos += len(tok)
-            bed_like_table['end'].append(cur_pos)
+           
+            bed_like_table['start'].append(start)
+            bed_like_table['end'].append(end)
 
-
+        seq_len = len(query['seq'])
         df = pd.DataFrame(bed_like_table)
-       
+        
         df = df[np.logical_and(df['start'] >= query['lpad'],
-                               df['end'] <= (cur_pos - query['rpad'])
+                               df['end'] <= (seq_len - query['rpad'])
                               )]
         df['start'] = df['start'] + query['context_start']
         df['end'] = df['end'] + query['context_start']
-
+        
         return df 
 

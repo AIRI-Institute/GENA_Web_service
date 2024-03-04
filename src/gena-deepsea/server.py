@@ -218,8 +218,8 @@ def save_annotations_files(annotation: List[Dict],
         respond_file = respond_files_path.joinpath(file_name)
         
         if not respond_file.exists():
-            with respond_file.open("w",  encoding=coding_type) as promoters_file:
-                print(f'track name=promoters description="{descriptions}"', file=promoters_file)
+            with respond_file.open("w",  encoding=coding_type) as respond_file:
+                print(f'track name={file_type} description="{descriptions}"\n', file=respond_file)
 
         with  respond_file.open('a', encoding=coding_type) as out_file :
             # add path to file in respond dict
