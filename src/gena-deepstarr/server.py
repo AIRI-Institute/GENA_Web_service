@@ -323,7 +323,7 @@ def respond():
                 for sample_name, batches in list(samples_queue.items())[:1]:
                     entries_count = 0
                     cur_entries = 0
-                    total_entries = sum(map(len, batches)) - 1
+                    total_entries = sum(map(len, batches)) 
                   
                     for batch in batches:
                         progress_fd = open(progress_file, "w")
@@ -348,6 +348,14 @@ def respond():
                                                                             request_name=request_name,
                                                                             descriptions=descriptions,
                                                                             entries_count=entries_count)
+                progress_fd = open(progress_file, "w")
+                progress_fd.truncate(0)
+                progress_fd.write(json.dumps({
+                        "progress": math.ceil(cur_entries / total_entries * 100),
+                        "cur_entries": cur_entries,
+                        "total_entries": total_entries
+                    }))
+                progress_fd.close()
                 gc.collect()
                 del service
             shutil.rmtree(temp_storage_dir)

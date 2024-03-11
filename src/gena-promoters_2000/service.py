@@ -70,6 +70,7 @@ class PromotersService:
         self.model.load_state_dict(checkpoint['model_state_dict'], strict=False)
         self.model.eval()
         self.model_forward_args = set(inspect.getfullargspec(self.model.forward).args)
+        self.wr_attr_count = 0
 
     def preprocess(self, dna_seq: str):
         features = self.tokenizer(dna_seq,
@@ -151,13 +152,15 @@ class PromotersService:
     def annotate_predictions(self, samples, labels, dna_queries, temp_storage):
         lig_object = self.create_attr_object()
         attributions = []
+        
         for si, smpl in enumerate(samples):
             smpl_attrs = {}
             lab = labels[si]
             if lab == 1: # predicted to be promoter
                 logger.info(f"Creating attributions for sample {si}")
                 attr = self.annotate_sample(lig_object=lig_object, sample=smpl, target=lab, query=dna_queries[si])
-                temp_path = temp_storage / f"attr_sample{si}_target{lab}"
+                temp_path = temp_storage / f"attr_sample{si}_target{lab}_{self.wr_attr_count}.bed"
+                self.wr_attr_count += 1
                 attr.to_csv(temp_path, sep="\t", index=False)
                 smpl_attrs[lab] = temp_path
 
@@ -185,29 +188,36 @@ class PromotersService:
 
         bed_like_table = {'tok_pos': [], 'token': [], 'attr': [], 'start': [], 'end': []}
         
-        tokens = self.tokenizer.convert_ids_to_tokens(presample['input_ids'], skip_special_tokens=False)
-
+        tokens = self.tokenizer.convert_ids_to_tokens(presample['input_ids'],
+                                                         skip_special_tokens=False)
         startends = token_positions(presample)
-        
+        seq_len = len(query['seq'])
         for i, tok in enumerate(tokens):
-            start, end = startends[i]
-            if start >= end:
+           
+            raw_start, raw_end = startends[i]
+            
+            if raw_start >= raw_end:
                 continue # special token 
+            if raw_end > seq_len - query['rpad']:
+                # right padding, a not special token
+                continue
+            if raw_start < query['lpad']:
+                # left padding, a not special token
+                continue
+            shift = query['context_start'] - query['lpad']
+            start = raw_start + shift
+            end = raw_end + shift 
+
             attr = attributions[i].item()
             bed_like_table['tok_pos'].append(i)
             bed_like_table['token'].append(tok)
             bed_like_table['attr'].append(attr)
+           
             bed_like_table['start'].append(start)
             bed_like_table['end'].append(end)
 
-        seq_len = len(query['seq'])
+        
         df = pd.DataFrame(bed_like_table)
-        
-        df = df[np.logical_and(df['start'] >= query['lpad'],
-                               df['end'] <= (seq_len - query['rpad'])
-                              )]
-        df['start'] = df['start'] + query['context_start']
-        df['end'] = df['end'] + query['context_start']
-        
+                
         return df 
 

@@ -292,7 +292,7 @@ def respond():
                 promoter_count = 0
                 for sample_name, batches in list(samples_queue.items())[:1]:
                     cur_entries = 0
-                    total_entries = sum(map(len, batches)) - 1
+                    total_entries = sum(map(len, batches)) 
                     
                     for batch in batches:
                         respond_dict['bed'] = []
@@ -319,7 +319,14 @@ def respond():
                                                             promoter_count=promoter_count)
                         del answer
                         gc.collect()
-
+                    progress_fd = open(progress_file, "w")
+                    progress_fd.truncate(0)
+                    progress_fd.write(json.dumps({
+                            "progress": math.ceil(cur_entries / total_entries * 100),
+                            "cur_entries": cur_entries,
+                            "total_entries": total_entries
+                        }))
+                    progress_fd.close()
                 del service
             shutil.rmtree(temp_storage_dir)
             # Генерируем архив

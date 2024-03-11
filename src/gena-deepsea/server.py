@@ -218,8 +218,8 @@ def save_annotations_files(annotation: List[Dict],
         respond_file = respond_files_path.joinpath(file_name)
         
         if not respond_file.exists():
-            with respond_file.open("w",  encoding=coding_type) as respond_file:
-                print(f'track name={file_type} description="{descriptions}"\n', file=respond_file)
+            with respond_file.open("w",  encoding=coding_type) as out_file:
+                print(f'track name={file_type} description="{descriptions}"\n', file=out_file)
 
         with  respond_file.open('a', encoding=coding_type) as out_file :
             # add path to file in respond dict
@@ -336,6 +336,14 @@ def respond():
 
 
                         cur_entries += len(batch)
+                progress_fd = open(progress_file, "w")
+                progress_fd.truncate(0)
+                progress_fd.write(json.dumps({
+                        "progress": math.ceil(cur_entries / total_entries * 100),
+                        "cur_entries": cur_entries,
+                        "total_entries": total_entries
+                    }))
+                progress_fd.close()
                 del service
             shutil.rmtree(temp_storage_dir)
             #respond_dict = save_annotations_files(sample_results, sample_name, respond_dict, request_name, descriptions)
