@@ -155,7 +155,7 @@ def save_fasta_and_faidx_files(fasta_content: str,
     faidx_time = time.time()
 
     respond_dict = {}
-    samples_queue, samples_content, sample_desc = processing_fasta_file(fasta_content, calc_importance=calc_importance)
+    samples_queue, samples_content, sample_desc = processing_fasta_file(content=fasta_content, calc_importance=calc_importance)
     for sample_name, dna_seq in samples_queue.items():
         st_time = time.time()
 
