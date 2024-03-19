@@ -280,7 +280,7 @@ def save_annotations_files(annotation: List[Dict],
                         attr_table['name'] = seq_name
                         attr_table = attr_table[['name', 'start', 'end', 'attr']]
                                 
-                        attr_table_name = f"{request_name}_attributions_{name}.bedGraph"
+                        attr_table_name = f"{request_name}_attributions_{tp}_{start}_{end}.bedGraph"
                         attr_table_path = respond_files_path.joinpath(attr_table_name)
                                     
                         attr_table.to_csv(attr_table_path, index=False, header=False, sep=delimiter)
