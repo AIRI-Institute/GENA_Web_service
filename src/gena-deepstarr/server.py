@@ -43,8 +43,10 @@ def processing_fasta_name(desc_line: str) -> Tuple[str, str]:
 
 
 FASTA_CHARS_FOR_LINE = 100
+MAX_SEQ_SIZE: int = 10 ** 6
+MAX_SEQ_IMPORTANCE_SIZE = 10 ** 4
 
-def processing_fasta_file(content: str) -> Tuple:
+def processing_fasta_file(content: str, calc_importance: bool) -> Tuple:
     handle =  io.StringIO(content)
 
     records = SeqIO.parse(handle, format="fasta")
@@ -53,11 +55,13 @@ def processing_fasta_file(content: str) -> Tuple:
     samples_content = {}
     sample_name = 'error'
     description = ''
+    max_seq_size = MAX_SEQ_IMPORTANCE_SIZE if calc_importance else MAX_SEQ_SIZE
 
     for rec in records:
         sample_name = rec.name
         description = rec.description
         seq = str(rec.seq)
+        assert len(seq) <= max_seq_size, 'Provided sequence is too large'
         file_queue[sample_name] = seq
 
         formatted_seq = "\n".join(textwrap.wrap(seq, width=FASTA_CHARS_FOR_LINE)) 
@@ -157,11 +161,12 @@ def form_batches(seqs: list[str], batch_size: int):
     return batches
 
 
-def save_fasta_and_faidx_files(fasta_content: str, request_name: str, service: DeepStarrService) -> Tuple:
+def save_fasta_and_faidx_files(fasta_content: str, request_name: str, service: DeepStarrService, calc_importance: bool) -> Tuple:
     faidx_time = time.time()
 
     respond_dict = {}
-    samples_queue, samples_content, sample_desc = processing_fasta_file(fasta_content)
+    samples_queue, samples_content, sample_desc = processing_fasta_file(fasta_content, 
+                                                                        calc_importance=calc_importance)
     for sample_name, dna_seq in samples_queue.items():
         st_time = time.time()
 
@@ -315,7 +320,8 @@ def respond():
                 # get queue of dna samples from fasta file
                 samples_queue, respond_dict, descriptions = save_fasta_and_faidx_files(fasta_content=fasta_content, 
                                                                                        request_name=request_name,
-                                                                                       service=service)
+                                                                                       service=service,
+                                                                                       calc_importance=calc_importance)
                 progress_file = os.path.join(respond_files_path, f"{request_id}_progress.json")
                 temp_storage_dir = Path(respond_files_path) / f"{request_id}_storage"
                 temp_storage_dir.mkdir(exist_ok=True, parents=True)

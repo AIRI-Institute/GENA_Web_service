@@ -28,8 +28,10 @@ app = Flask(__name__)
 respond_files_path = service_folder.joinpath('data/respond_files/')
 respond_files_path.mkdir(exist_ok=True)
 
+MAX_SEQ_SIZE: int = 10 ** 6
+MAX_SEQ_IMPORTANCE_SIZE: int = 10 ** 4
 
-def processing_fasta_file(content: str) -> Tuple:
+def processing_fasta_file(content: str, calc_importance: bool) -> Tuple:
     handle =  io.StringIO(content)
 
     records = SeqIO.parse(handle, format="fasta")
@@ -39,10 +41,13 @@ def processing_fasta_file(content: str) -> Tuple:
     sample_name = 'error'
     description = ''
 
+    max_seq_size = MAX_SEQ_IMPORTANCE_SIZE if calc_importance else MAX_SEQ_SIZE
+
     for rec in records:
         sample_name = rec.name
         description = rec.description
         seq = str(rec.seq)
+        assert len(seq) <= max_seq_size, 'Provided sequence is too large'
         file_queue[sample_name] = seq
 
         formatted_seq = "\n".join(textwrap.wrap(seq, width=FASTA_CHARS_FOR_LINE)) 
@@ -142,11 +147,15 @@ def form_batches(seqs: list[str], batch_size: int):
 
 
 
-def save_fasta_and_faidx_files(fasta_content: str, request_name: str, service: PromotersService) -> Tuple:
+def save_fasta_and_faidx_files(fasta_content: str, 
+                               request_name: str,
+                               service: PromotersService,
+                               calc_importance: bool) -> Tuple:
     faidx_time = time.time()
 
     respond_dict = {}
-    samples_queue, samples_content, sample_desc = processing_fasta_file(fasta_content)
+    samples_queue, samples_content, sample_desc = processing_fasta_file(fasta_content=fasta_content, 
+                                                                        calc_importance=calc_importance)
     for sample_name, dna_seq in samples_queue.items():
         st_time = time.time()
 
@@ -279,7 +288,10 @@ def respond():
                 service = PromotersService(conf)
 
                 # get queue of dna samples from fasta file
-                samples_queue, respond_dict, descriptions = save_fasta_and_faidx_files(fasta_content, request_name, service)
+                samples_queue, respond_dict, descriptions = save_fasta_and_faidx_files(fasta_content=fasta_content,
+                                                                                       request_name=request_name,
+                                                                                       service=service,
+                                                                                       calc_importance=calc_importance)
 
                 # run model on inputs sequences
                

@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 import json
 
+MAX_SEQ_SIZE: int = 10 ** 6
+
 def save_fasta_and_faidx_files(service_request: request, request_id) -> Tuple[str, str, Dict]:
     st_time = time.time()
     req_path = f"/DNABERT_storage/request_{request_id}"
@@ -47,6 +49,10 @@ def save_fasta_and_faidx_files(service_request: request, request_id) -> Tuple[st
                 dna_seqs.append('')
                 flag = False
             dna_seqs[-1] += line
+
+    for seq in dna_seqs.values():
+        assert len(seq) <= MAX_SEQ_SIZE, 'Provided sequence is too large'
+
 
     file_path = req_path + "/dev.csv"
     with open(file_path, 'w', encoding='utf-8') as input_file:

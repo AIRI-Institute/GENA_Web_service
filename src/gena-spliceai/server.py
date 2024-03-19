@@ -31,7 +31,8 @@ app = Flask(__name__)
 
 respond_files_path = service_folder.joinpath('data/respond_files/')
 respond_files_path.mkdir(exist_ok=True)
-
+MAX_SEQ_SIZE: int = 10 ** 6
+MAX_SEQ_IMPORTANCE_SIZE: int = 10 ** 4
 def slice_sequence(seq: str, 
                    context_window: int,
                    pred_window: int,
@@ -111,7 +112,7 @@ def slice_sequence(seq: str,
 
     return slices
 
-def processing_fasta_file(content: str) -> Tuple:
+def processing_fasta_file(content: str, calc_importance: bool) -> Tuple:
     handle =  io.StringIO(content)
 
     records = SeqIO.parse(handle, format="fasta")
@@ -121,10 +122,13 @@ def processing_fasta_file(content: str) -> Tuple:
     sample_name = 'error'
     description = ''
 
+    max_seq_size = MAX_SEQ_IMPORTANCE_SIZE if calc_importance else MAX_SEQ_SIZE
+
     for rec in records:
         sample_name = rec.name
         description = rec.description
         seq = str(rec.seq)
+        assert len(seq) <= max_seq_size, 'Provided sequence is too large'
         file_queue[sample_name] = seq
 
         formatted_seq = "\n".join(textwrap.wrap(seq, width=FASTA_CHARS_FOR_LINE)) 
@@ -137,11 +141,15 @@ def processing_fasta_file(content: str) -> Tuple:
     return file_queue, samples_content, description
 
 
-def save_fasta_and_faidx_files(fasta_content: str, request_name: str, service: SpliceaiService) -> Tuple:
+def save_fasta_and_faidx_files(fasta_content: str,
+                                request_name: str, 
+                                service: SpliceaiService,
+                                calc_importance: bool) -> Tuple:
     faidx_time = time.time()
 
     respond_dict = {}
-    samples_queue, samples_content, sample_desc = processing_fasta_file(fasta_content)
+    samples_queue, samples_content, sample_desc = processing_fasta_file(fasta_content=fasta_content,
+                                                                        calc_importance=calc_importance)
     for sample_name, dna_seq in samples_queue.items():
         st_time = time.time()
 
@@ -183,68 +191,6 @@ def save_fasta_and_faidx_files(fasta_content: str, request_name: str, service: S
 
     return samples_queue, respond_dict, sample_desc
 #  return dna_seq_names, req_path, all_tokenized_sequences, tokenizer
-
-def save_fasta_and_faidx_files_old(service_request: request) -> Tuple[str, str, Dict]:
-    st_time = time.time()
-    req_path = f"data/respond_files/request_{date.today()}_{datetime.now().microsecond}_" # without _
-    os.makedirs(req_path)
-
-    tokenizer = AutoTokenizer.from_pretrained('data/tokenizers/t2t_1000h_multi_32k/')
-
-    # read data from request
-    if 'file' in request.files:
-        file = request.files['file']
-        fasta_seq = file.read().decode('UTF-8')
-    else:
-        fasta_seq = request.form.get('dna')
-
-    assert fasta_seq, 'Field DNA sequence or file are required.'
-    # fasta_seq = service_request.json["fasta_seq"]
-    # print(fasta_seq, flush=True)
-
-    dna_seq_names = []
-    dna_seqs = []
-    flag = False
-    for line in fasta_seq.splitlines():
-        if line[0] == '>':
-            if ':' in line:
-                dna_seq_names.append(line.split(' ')[0].split(':')[0][1:])
-            else:
-                dna_seq_names.append(line.split(' ')[0][1:])
-            flag = True
-        else:
-            if flag:
-                dna_seqs.append('')
-                flag = False
-            dna_seqs[-1] += line
-
-    all_tokenized_sequences = []
-    for k in range(len(dna_seq_names)):
-        all_tokenized_sequences.append([])
-        dna_seq = dna_seqs[k]
-        counter = 0
-        while True:
-            sub_dna_seq = dna_seq[counter:counter+15000]
-            if len(sub_dna_seq) == 0:
-                break
-            else:
-                tokenized_seq = tokenizer(sub_dna_seq, 
-                                          max_length=4096, 
-                                          padding="max_length", 
-                                          truncation="longest_first",
-                                          return_tensors='pt')
-                all_tokenized_sequences[k].append( (sub_dna_seq, tokenized_seq) )
-                counter += 15000
-
-    file_path = req_path + "dna.fa" # "/dna.fa"
-    with open(file_path, 'w', encoding='utf-8') as f:
-        for i in range(len(dna_seq_names)):
-            f.write('>' + dna_seq_names[i] + '\n')
-            f.write(dna_seqs[i] + '\n')
-
-    Faidx(file_path)
-
-    return dna_seq_names, req_path, all_tokenized_sequences, tokenizer
 
 
 def get_model_prediction(batches, 
@@ -405,8 +351,9 @@ def respond():
                 temp_storage_dir.mkdir(exist_ok=True, parents=True)
 
                 samples_queue, respond_dict, _ = save_fasta_and_faidx_files(fasta_content=fasta_seq,
-                                                                                    request_name=request_name,
-                                                                                                         service=service)
+                                                                            request_name=request_name,
+                                                                            service=service,
+                                                                            calc_importance=calc_importance)
 
                 seq_name, batches = list(samples_queue.items())[0] # we use only first sequence from file
                 responses = get_model_prediction(batches=batches, 
