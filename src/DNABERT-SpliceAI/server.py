@@ -47,7 +47,7 @@ def save_fasta_and_faidx_files(service_request: request) -> Tuple[str, str, Dict
                 flag = False
             dna_seqs[-1] += line
 
-    for seq in dna_seqs.values():
+    for seq in dna_seqs:
         assert len(seq) <= MAX_SEQ_SIZE, 'Provided sequence is too large'
 
     file_path = req_path + "/dev.csv"
