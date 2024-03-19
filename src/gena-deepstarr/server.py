@@ -275,12 +275,12 @@ def save_annotations_files(annotation: List[Dict],
 
                       
                 if attr_dt is not None:
-                    for tp, name in (('dev', dev_name), ('hk', hk_name)):
+                    for tp, tp_name in (('dev', "Dev"), ('hk', "Hk")):
                         attr_table = pd.read_table(attr_dt[tp])
                         attr_table['name'] = seq_name
                         attr_table = attr_table[['name', 'start', 'end', 'attr']]
                                 
-                        attr_table_name = f"{request_name}_attributions_{tp}_{start}_{end}.bedGraph"
+                        attr_table_name = f"{request_name}_attributions_{tp_name}_{start+1:,}_{end:,}.bedGraph"
                         attr_table_path = respond_files_path.joinpath(attr_table_name)
                                     
                         attr_table.to_csv(attr_table_path, index=False, header=False, sep=delimiter)
